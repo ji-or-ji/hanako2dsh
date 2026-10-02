@@ -1,0 +1,49 @@
+{
+  "manifestVersion": 1,
+  "id": "hanako2dsh",
+  "name": "Hanako2DSH",
+  "version": "1.6.2",
+  "description": "在 Hana 里拉起并嵌入 DeepSeek Harness（复用 DSH 账号登录，无需 API key），并从 Hana 直接向 DSH 派活。",
+  "trust": "full-access",
+  "minAppVersion": "0.421.0",
+  "activationEvents": ["onStartup"],
+  "capabilities": ["network.fetch"],
+  "contributes": {
+    "page": {
+      "title": { "zh": "DSH", "en": "DSH" },
+      "route": "/page",
+      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 9h10M7 13h6\"/><circle cx=\"17\" cy=\"16.5\" r=\"1.6\" fill=\"currentColor\" stroke=\"none\"/></svg>"
+    },
+    "widget": {
+      "title": { "zh": "DSH 状态", "en": "DSH Status" },
+      "route": "/widget",
+      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 9h10M7 13h6\"/><circle cx=\"17\" cy=\"16.5\" r=\"1.6\" fill=\"currentColor\" stroke=\"none\"/></svg>"
+    },
+    "configuration": {
+      "title": "Hanako2DSH",
+      "properties": {
+        "dshAppDir": {
+          "type": "string",
+          "default": "",
+          "description": "DeepSeek Harness（官方桌面版）安装目录，即含 DeepSeek Harness.exe 的文件夹。留空则自动探测常见位置"
+        },
+        "autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hana 启动时自动拉起 DSH web 实例并开启代理"
+        },
+        "defaultCwd": {
+          "type": "string",
+          "default": "",
+          "description": "派活（headless）时的默认工作目录，留空则用 Hana 工作区"
+        },
+        "permissionMode": {
+          "type": "string",
+          "enum": ["read-only", "workspace-write", "danger-full-access"],
+          "default": "danger-full-access",
+          "description": "权限等级（按会话下发 DSH_PERMISSION_MODE）。danger-full-access = 全程免审批、可越界；workspace-write = 只能改工作区，越界直接拒；read-only = 只读"
+        }
+      }
+    }
+  }
+}
