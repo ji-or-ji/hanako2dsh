@@ -90,6 +90,24 @@
 
 ---
 
+## Hanako 皮肤（可选）
+
+插件里带一张自制的 DSH 主题卡 **`HanaAgent`**：暖米色浅色 + 石板蓝深色，支持深浅自动跟随，让镜像里的 DSH 看上去跟 Hana 是一家人。
+
+| 浅色 | 深色 |
+| --- | --- |
+| ![浅色](https://raw.githubusercontent.com/ji-or-ji/hanako2dsh/main/docs/theme-light.png) | ![深色](https://raw.githubusercontent.com/ji-or-ji/hanako2dsh/main/docs/theme-dark.png) |
+
+**前置**：镜像所在的 DSH 需要装了 [`dsh-themes`](https://www.npmjs.com/package/dsh-themes)。没装的话插件会安静跳过（并告诉你）。
+
+**行为（只装，不抢）**：
+
+- 检测到 `dsh-themes` → 把这张卡**合并**进 `~/.dsh/dsh-themes.json` 的 `custom[]`（按 id 匹配，**只碰这一条**，你其它主题原样不动），首次改动前留一份 `.bak`
+- **不修改** `current` / `mixed` —— 要切主题由你在 DSH 的「外观」里自己点
+- 只要卡在、但还没切到它，侧栏会提示一句「Hanako 皮肤已就绪」，点「**不再提示**」就不再打扰；一旦你切到了这张卡，提示自动消失
+
+---
+
 ## 从源码安装（开发者）
 
 把本目录放进 `${HANA_HOME}/plugin-dev-sources/`，用 EventBus 的 `plugin.dev.install`（或 `POST /api/plugins/dev/install`）装进 dev 槽；改完 `plugin.dev.reload`。注意：**入口之外的子模块有 ESM 缓存**，改了 `lib/`、`routes/`、`tools/` 需要重启 Hana 才生效。

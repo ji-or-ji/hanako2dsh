@@ -106,10 +106,21 @@ const WIDGET_STYLES = `
     font-family: inherit; transition: background .15s ease, color .15s ease; }
   .btn-abort:hover { background: #ef4444; color: #fff }
   .btn-abort:disabled { opacity: .4; cursor: default }
+  .theme { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+    background: #f5f1e9; border: 1px solid #e2ddd3; font-size: 11px; color: #6f6a61; line-height: 1.4; }
+  .theme[hidden] { display: none }
+  .theme .t-txt { flex: 1 }
+  .theme b { color: #2b2a26; font-weight: 600 }
+  .theme .t-off { flex: none; border: 1px solid #cfc9bf; background: transparent; color: #8b867c;
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+  .theme .t-off:hover { border-color: #a9a49a; color: #2b2a26 }
   @media (prefers-color-scheme: dark) {
     .card { color: #e5e7eb } .sub { color: #9ca3af } .tl-text { color: #d1d5db } .prog { color: #60a5fa }
     .btn-abort { background: transparent }
     .win { background: #374151; color: #9ca3af } .win.on { background: #312e81; color: #c7d2fe }
+    .theme { background: #45535d; border-color: #55646e; color: #9aa1a5 }
+    .theme b { color: #dce6ec }
+    .theme .t-off { border-color: #55646e; color: #9aa1a5 }
     .tl::-webkit-scrollbar-thumb { background: rgba(200,200,200,.1) }
     .tl:hover::-webkit-scrollbar-thumb { background: rgba(200,200,200,.26) }
     .tl.scrolling::-webkit-scrollbar-thumb { background: rgba(200,200,200,.45) }
@@ -247,6 +258,10 @@ function renderWidget(ctx) {
       <div class="sub" id="sub">${escapeHtml(v.sub)}</div>
       <div class="wins" id="wins">${winsRows(st.windows)}</div>
       <div class="prog" id="prog">${escapeHtml(st.progress?.text || "")}</div>
+      <div class="theme" id="theme"${st.theme?.hint ? "" : " hidden"}>
+        <span class="t-txt">Hanako 皮肤已就绪 · 在 DSH 的「外观」里选 <b>HanaAgent</b></span>
+        <button class="t-off" id="themeOff" title="不再提示">不再提示</button>
+      </div>
       <div class="tl" id="tl">${tlRows(st.timeline)}</div>
       <button class="btn-abort" id="abort" disabled>急停</button>
     </div>`,
@@ -319,6 +334,11 @@ function renderWidget(ctx) {
       try { await fetch(CTL + "?action=abort&_=" + Date.now(), { cache: "no-store" }); } catch (e) {}
       setTimeout(() => { aborting = false; el("abort").disabled = false; el("abort").textContent = "急停"; }, 1500);
     });
+    el("themeOff").addEventListener("click", async () => {
+      if (!CTL) return;
+      el("theme").hidden = true;
+      try { await fetch(CTL + "?action=theme_hint_off&_=" + Date.now(), { cache: "no-store" }); } catch (e) {}
+    });
     async function poll() {
       if (!HB) { if (++miss > 3) { location.reload(); return; } setTimeout(poll, 2500); return; }
       try {
@@ -330,6 +350,7 @@ function renderWidget(ctx) {
         el("label").textContent = v.label;
         el("sub").textContent = v.sub;
         el("prog").textContent = s.progress || "";
+        if (s.theme) el("theme").hidden = !s.theme.hint;
         if (!aborting) el("abort").disabled = !s.running;
         renderWins(s.windows);
         renderTimeline(s.timeline);
