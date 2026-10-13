@@ -76,8 +76,19 @@ const WIDGET_STYLES = `
   .led.bad { background: #ef4444 }
   @keyframes pulse { 0%,100% { opacity: .4 } 50% { opacity: 1 } }
   .sub { font-size: 12px; color: #6b7280; }
-  .wins { display: flex; flex-wrap: wrap; gap: 4px; }
+  .wins { display: flex; flex-wrap: wrap; gap: 4px; max-height: 76px; overflow-y: auto;
+    scrollbar-gutter: stable; }
   .wins:empty { display: none; }
+  .wins::-webkit-scrollbar { width: 4px; height: 4px; }
+  .wins::-webkit-scrollbar-track { background: transparent; }
+  .wins::-webkit-scrollbar-thumb { background: rgba(128,128,128,.12); border-radius: 2px; transition: background .35s ease-out; }
+  .wins:hover::-webkit-scrollbar-thumb,
+  .wins.scrolling::-webkit-scrollbar-thumb { background: rgba(128,128,128,.45); }
+  .wins::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .whead { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af;
+    cursor: pointer; user-select: none; }
+  .whead[hidden] { display: none; }
+  .whead .wc { color: #6f6a61; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .win { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #f3f4f6; color: #6b7280;
     cursor: pointer; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .win.on { background: #e0e7ff; color: #4338ca; cursor: default; }
@@ -118,6 +129,10 @@ const WIDGET_STYLES = `
     .card { color: #e5e7eb } .sub { color: #9ca3af } .tl-text { color: #d1d5db } .prog { color: #60a5fa }
     .btn-abort { background: transparent }
     .win { background: #374151; color: #9ca3af } .win.on { background: #312e81; color: #c7d2fe }
+    .whead .wc { color: #9aa1a5 }
+    .wins::-webkit-scrollbar-thumb { background: rgba(200,200,200,.1) }
+    .wins:hover::-webkit-scrollbar-thumb,
+    .wins.scrolling::-webkit-scrollbar-thumb { background: rgba(200,200,200,.42) }
     .theme { background: #45535d; border-color: #55646e; color: #9aa1a5 }
     .theme b { color: #dce6ec }
     .theme .t-off { border-color: #55646e; color: #9aa1a5 }
@@ -192,6 +207,18 @@ function winsRows(list) {
     .join("");
 }
 
+/** 窗口头：多于一个窗口时才出现；折叠时把当前窗口名写在头上 */
+function winsHead(st) {
+  const list = st.windows;
+  if (!Array.isArray(list) || list.length <= 1) return { hidden: true, text: "" };
+  const active = list.find((w) => w.active);
+  const collapsed = st.windowsCollapsed === true;
+  return {
+    hidden: false,
+    text: `${collapsed ? "▸" : "▾"} 窗口 ${list.length}${collapsed && active ? " · " + active.label : ""}`,
+  };
+}
+
 function renderPage(ctx) {
   const bridge = getBridge(ctx);
   const st = bridge.getState();
@@ -256,7 +283,8 @@ function renderWidget(ctx) {
     `<div class="card">
       <div class="hd"><span class="led ${v.led}" id="led"></span><span id="label">${escapeHtml(v.label)}</span></div>
       <div class="sub" id="sub">${escapeHtml(v.sub)}</div>
-      <div class="wins" id="wins">${winsRows(st.windows)}</div>
+      <div class="whead" id="whead"${winsHead(st).hidden ? " hidden" : ""}><span id="wheadText">${escapeHtml(winsHead(st).text)}</span></div>
+      <div class="wins" id="wins"${st.windowsCollapsed === true ? " hidden" : ""}>${winsRows(st.windows)}</div>
       <div class="prog" id="prog">${escapeHtml(st.progress?.text || "")}</div>
       <div class="theme" id="theme"${st.theme?.hint ? "" : " hidden"}>
         <span class="t-txt">Hanako 皮肤已就绪 · 在 DSH 的「外观」里选 <b>HanaAgent</b></span>
@@ -297,11 +325,18 @@ function renderWidget(ctx) {
       }
       if (atBottom) box.scrollTop = box.scrollHeight;
     }
-    function renderWins(list) {
-      const box = el("wins");
-      if (!box) return;
+    function renderWins(list, collapsed) {
+      const head = el("whead"), headText = el("wheadText"), box = el("wins");
+      if (!head || !box) return;
+      const many = Array.isArray(list) && list.length > 1;
+      head.hidden = !many;
+      if (many) {
+        const active = list.find(function (w) { return w.active; });
+        headText.textContent = (collapsed ? "\u25B8" : "\u25BE") + " 窗口 " + list.length + (collapsed && active ? " · " + active.label : "");
+      }
+      box.hidden = !!collapsed;
       box.textContent = "";
-      if (!Array.isArray(list) || list.length <= 1) return;
+      if (!many || collapsed) return;
       for (const w of list) {
         const s = document.createElement("span");
         s.className = "win" + (w.active ? " on" : "");
@@ -317,6 +352,21 @@ function renderWidget(ctx) {
         box.append(s);
       }
     }
+    el("whead").addEventListener("click", function () {
+      if (!CTL) return;
+      fetch(CTL + "?action=windows_toggle&_=" + Date.now(), { cache: "no-store" })
+        .then(function () { poll(); }).catch(function () {});
+    });
+    (function () {
+      const box = el("wins");
+      if (!box || !box.addEventListener) return;
+      let t = null;
+      box.addEventListener("scroll", function () {
+        box.classList.add("scrolling");
+        if (t) clearTimeout(t);
+        t = setTimeout(function () { box.classList.remove("scrolling"); }, 700);
+      }, { passive: true });
+    })();
     // 滚动时短暂显色（对齐 Hana 原生：平时隐藏，滚起来才现，滚完淡回去）
     (function () {
       const box = el("tl");
@@ -352,7 +402,7 @@ function renderWidget(ctx) {
         el("prog").textContent = s.progress || "";
         if (s.theme) el("theme").hidden = !s.theme.hint;
         if (!aborting) el("abort").disabled = !s.running;
-        renderWins(s.windows);
+        renderWins(s.windows, s.windowsCollapsed === true);
         renderTimeline(s.timeline);
       } catch (e) { if (++miss > 4) { location.reload(); return; } }
       setTimeout(poll, 1500);
