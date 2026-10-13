@@ -3,3 +3,7 @@ dist/
 *.zip
 *.log
 .DS_Store
+
+# 发布片工作区（媒体文件，别误提交）
+release-video/
+video-mvp/

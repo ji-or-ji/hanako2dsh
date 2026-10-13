@@ -64,7 +64,7 @@
 | --- | --- | --- |
 | `dshAppDir` | 空 | DSH 安装目录（含 `DeepSeek Harness.exe`）。留空自动探测 |
 | `autoStart` | `true` | Hana 启动时自动拉起实例并建代理；关掉则打开页签时才懒启动 |
-| `defaultCwd` | 空 | 派活的默认工作目录，留空用 Hana 工作区 |
+| `defaultCwd` | 空 | 派活的兑底工作目录。**优先级很低**：只有在前面的显式参数、会话临时目录、会话目录、agent 桌面都拿不到时才用它 |
 | `permissionMode` | `danger-full-access` | 权限等级，见上 |
 
 ---
@@ -87,6 +87,32 @@
 - **headless 没有审批通道**。所以派活时的越界行为，要么被放行（`danger-full-access`），要么被拒（`workspace-write`），中间没有"问一下"这一步。
 - **窗口 = 会话**。同一目录下开两个会话，就是两个窗口，这是设计如此。
 - 反代依赖本地回环端口，若被安全软件拦截会表现为页签一直转圈（`hanako2dsh_diagnose` 能定位）。
+
+---
+
+## 工作目录（派活落在哪）
+
+`hanako2dsh_run` 的 `cwd` 决定 DSH 在哪个目录里干活。不传时按下面这条链回退，第一条命中的赢：
+
+| 顺序 | 来源 | 说明 |
+| --- | --- | --- |
+| 1 | `explicit` | 本次调用显式传的 `cwd` |
+| 2 | `session-pin` | **本 Hana 会话**里临时指定的目录（见下） |
+| 3 | `session` | 本 Hana 会话自身的工作目录（读会话文件头） |
+| 4 | `desk` | agent 的桌面：`agents/<id>/config.yaml` 里的 `desk.home_folder` |
+| 5 | `config` | 插件设置里的 `defaultCwd` |
+| 6 | `process` | `HANA_WORKSPACE` 或进程 cwd |
+
+每次派活的返回里都带 `cwd` 与 `cwdSource`，所以“它到底跑哪了”一看就知道。
+
+**本会话临时目录**（只影响当前 Hana 会话，不跨会话）：
+
+```
+hanako2dsh_control { "action": "pinCwd", "cwd": "D:\\my-temp" }   ← 绑定到本会话
+hanako2dsh_control { "action": "unpinCwd" }                       ← 解除（传空 cwd 同效）
+```
+
+绑定后，本会话后续的派活都落在那个目录，直到你解除或换个目录。
 
 ---
 

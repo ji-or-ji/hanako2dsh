@@ -1,4 +1,5 @@
 import { getBridge } from "../lib/bridge.js";
+import { resolveCwd, hanaSessionKey } from "../lib/cwd.js";
 
 export const name = "run";
 export const description =
@@ -7,7 +8,11 @@ export const parameters = {
   type: "object",
   properties: {
     task: { type: "string", description: "要交给 DSH 执行的任务描述" },
-    cwd: { type: "string", description: "任务工作目录，留空用插件默认值" },
+    cwd: {
+      type: "string",
+      description:
+        "本次派活的工作目录（一次性覆盖）。不传则依次回退：本会话临时目录 → 本 Hana 会话的工作目录 → agent 桌面（desk.home_folder）→ 插件配置的 defaultCwd",
+    },
     sessionId: { type: "string", description: "复用已有会话时传入；不传则开新会话" },
     timeoutMs: { type: "number", description: "超时毫秒，默认 600000" },
     wait: {
@@ -46,9 +51,18 @@ function pickAgentName(c) {
 
 export async function execute(input, toolCtx) {
   const bridge = getBridge(toolCtx);
+  const cfg = bridge.getConfig();
+  const key = hanaSessionKey(toolCtx);
+  const pins = (cfg.sessionCwd && typeof cfg.sessionCwd === "object") ? cfg.sessionCwd : {};
+  const { cwd, source } = resolveCwd({
+    explicit: input.cwd,
+    pinned: key ? pins[key] : null,
+    sessionPath: toolCtx?.sessionPath || toolCtx?.sessionRef?.sessionPath,
+    fallback: cfg.defaultCwd,
+  });
   const sessionPath = toolCtx?.sessionPath || toolCtx?.sessionRef?.sessionPath || null;
   const res = await bridge.runTask(input.task, {
-    cwd: input.cwd,
+    cwd,
     sessionId: input.sessionId,
     timeoutMs: input.timeoutMs,
     agentName: pickAgentName(toolCtx),
@@ -63,6 +77,8 @@ export async function execute(input, toolCtx) {
     sessionId: res.sessionId,
     reason: res.reason,
     exitCode: res.code,
+    cwd,
+    cwdSource: source,
     usage: res.usage,
     text: res.text,
     stderr: res.ok ? undefined : res.stderr,

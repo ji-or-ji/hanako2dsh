@@ -1,4 +1,5 @@
 import { getBridge } from "../lib/bridge.js";
+import { resolveCwd, hanaSessionKey } from "../lib/cwd.js";
 
 export const name = "status";
 export const description =
@@ -7,6 +8,13 @@ export const parameters = { type: "object", properties: {} };
 export const sessionPermission = { readOnly: true };
 
 export async function execute(_input, toolCtx) {
-  const st = getBridge(toolCtx).getState();
-  return JSON.stringify(st, null, 2);
+  const bridge = getBridge(toolCtx);
+  const cfg = bridge.getConfig();
+  const resolved = resolveCwd({
+    sessionPath: toolCtx?.sessionPath || toolCtx?.sessionRef?.sessionPath,
+    pinned: (cfg.sessionCwd || {})[hanaSessionKey(toolCtx)],
+    fallback: cfg.defaultCwd,
+  });
+  const st = bridge.getState();
+  return JSON.stringify({ ...st, cwd: resolved.cwd, cwdSource: resolved.source }, null, 2);
 }
