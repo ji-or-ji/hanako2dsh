@@ -20,6 +20,8 @@
 
 1. **镜像页签** —— 在 Hana 顶部开一个 `DSH` 页签。内层 iframe 连的是**本机真实运行的 DSH 界面**（插件在本地架一个反向代理，保持 Host、去掉 Origin、注入会话 cookie），HTTP 和 WebSocket 全透传。也就是说这是**活的**界面，不是截图；你在里面点、在里面聊，都作数。
 2. **派活** —— `hanako2dsh_run` 把任务交给 DSH 的 headless 模式执行。默认**异步**：工具立刻返回「已派单」，任务在后台跑，**完成后结果自动回到对话**（走宿主的 deferred 通道，不用你在旁边守着）。想要同步等待就传 `wait: true`。
+
+   派活默认**加载 `dsh-ops`**（如果 headless profile 里装了）：它的原生文件工具和 bash 在「写 → 跑 → 改」这类迭代任务里能省约 15% token。但它的固定开销（额外提示词 + 工具 schema）在**纯只读检索**任务里摊不薄，实测反而多花 10%~15%。所以只读活可以传 `ops: false` 关掉，能净省。没装 dsh-ops 时这个参数不产生任何影响。
 3. **侧栏时间线** —— 窗格里按「**一次 DSH 会话 = 一个窗口**」分栏，实时列出每一次工具调用与每段输出（截前 200 字），带状态灯、实时进度、右下角**急停**。窗口历史会落盘，重启 Hana 不丢。窗口多于一个时顶部会出现**窗口标签**（点一下切窗口），**点它的标题即可折叠**（折叠后标题上就写着当前窗口名），状态会记住；展开时也限高 76px 可滚，不会把时间线挤没。
 
 ---
@@ -73,7 +75,7 @@
 
 | 工具 | 权限 | 说明 |
 | --- | --- | --- |
-| `hanako2dsh_run` | external | 派活。默认异步，返回 `{ok, deferred, opId}`；`wait:true` 同步等结果 |
+| `hanako2dsh_run` | external | 派活。默认异步，返回 `{ok, deferred, opId}`；`wait:true` 同步等结果。`ops:false` 让本次不加载 dsh-ops |
 | `hanako2dsh_status` | readOnly | 实例端口 / 代理端口 / 是否就绪 / cookie / PID / 权限等级 / 时间线 |
 | `hanako2dsh_control` | external | `start` / `stop` / `restart` |
 | `hanako2dsh_diagnose` | readOnly | 体检：安装路径、asar 内 `cli.js`、账号凭据、当前状态 |

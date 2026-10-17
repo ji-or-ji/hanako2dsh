@@ -26,6 +26,11 @@ export const parameters = {
       description:
         "本次派活的权限等级（覆盖插件默认）。danger-full-access = 全程免审批、可越界操作；workspace-write = 只能改工作区，越界直接被拒；read-only = 只读",
     },
+    ops: {
+      type: "boolean",
+      description:
+        "本次派活是否加载 dsh-ops 工具（原生文件读写/检索 + bash）。不传默认 true：装了 Hana2DSH 多半是派重活，写→测→改的循环里它明显省 token。纯只读的检索/总结型任务传 false，可省掉它的固定开销（实测只读场景下开它反而亏 10%~15%）。headless profile 没装 dsh-ops 时该参数无效。",
+    },
   },
   required: ["task"],
 };
@@ -69,6 +74,7 @@ export async function execute(input, toolCtx) {
     sessionPath,
     defer: input.wait !== true,
     permission: input.permission,
+    ops: input.ops !== false,
   });
   const summary = {
     ok: res.ok,
@@ -79,6 +85,7 @@ export async function execute(input, toolCtx) {
     exitCode: res.code,
     cwd,
     cwdSource: source,
+    ops: input.ops === false ? "off" : "on",
     usage: res.usage,
     text: res.text,
     stderr: res.ok ? undefined : res.stderr,
