@@ -229,10 +229,12 @@ function winsHead(st) {
 }
 
 const SCHED_STYLES = `
-  #schBtn { position: fixed; right: 14px; bottom: 14px; z-index: 20; width: 34px; height: 34px;
-    border-radius: 10px; border: 1px solid rgba(128,128,128,.28); background: rgba(255,255,255,.72);
-    color: #4b5563; font-size: 15px; cursor: pointer; backdrop-filter: blur(6px); }
-  #schBtn:hover { background: rgba(255,255,255,.95); }
+  #schBtn { position: fixed; right: 16px; bottom: 16px; z-index: 9999; height: 32px; padding: 0 12px 0 9px;
+    display: inline-flex; align-items: center; gap: 5px; border-radius: 16px;
+    border: 1px solid rgba(120,120,120,.32); background: #fff; color: #44403c;
+    font: 500 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif; cursor: pointer;
+    box-shadow: 0 3px 14px rgba(0,0,0,.16); opacity: .92; }
+  #schBtn:hover { opacity: 1; box-shadow: 0 4px 18px rgba(0,0,0,.2); }
   #sch { position: fixed; right: 14px; bottom: 56px; z-index: 21; width: 332px; max-height: 76vh;
     display: flex; flex-direction: column; border-radius: 14px; border: 1px solid rgba(128,128,128,.25);
     background: rgba(252,250,245,.97); box-shadow: 0 10px 30px rgba(0,0,0,.14); backdrop-filter: blur(10px);
@@ -297,7 +299,7 @@ function renderPage(ctx) {
     "page",
     PAGE_STYLES + SCHED_STYLES,
     `<iframe id="frame" src="${proxyUrl}" allow="clipboard-read; clipboard-write"></iframe>
-    <button id="schBtn" title="定时任务">⏱</button>
+    <button id="schBtn" title="定时任务"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.4V8l2.5 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>定时</span></button>
     <div id="sch" hidden>
       <div class="sch-h"><b>定时任务</b><button id="schX">×</button></div>
       <div class="sch-body">
