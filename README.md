@@ -145,7 +145,7 @@ DSH 把主题变量写在 `<body>` 的内联 `style` 上，内联优先级高于
 
 - 主题源：`themes/hanaagent.json`（明暗各 95 个 token）
 - 只碰 `text/html` 响应，JS / CSS / 图片 / 接口原样透传
-- **开关在 Hana 这边**：设置里的 `skinEnabled`，或侧栏窗格的「皮肤」行点一下切换；关了刷新镜像页即恢复 DSH 默认配色
+- **开关在 Hana 这边**：设置 → Hanako2DSH → `skinEnabled`（默认开）。改了刷新镜像页即生效，关掉则恢复 DSH 默认配色。侧栏窗格不再放这个开关——调色不是常用项，不占地方。
 
 > 历史做法（1.8.1 及以前）：检出 `dsh-themes` 就只把卡片追加进它的 `custom[]`，不抢 `current`/`mixed`。这套机制在 DSH 0.2.1-rc.x 上失效了（`dsh-themes@0.2.1` 在那边注册不了 `/api/dsh-themes`），所以改成自己接管；那段代码仍在，`dsh-themes` 恢复后会继续兼容。
 
