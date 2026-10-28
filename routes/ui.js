@@ -252,6 +252,24 @@ const SCHED_STYLES = `
   .frow button { border: 1px solid rgba(128,128,128,.28); border-radius: 6px; background: #fff;
     padding: 3px 6px; cursor: pointer; font: inherit; font-size: 11px; }
   .msg { font-size: 10px; color: #b45309; min-height: 12px; }
+  /* 任何带 hidden 的子元素都必须真的隐藏（否则 display:flex 会盖掉 UA 的 [hidden]） */
+  .sch [hidden] { display: none !important; }
+  @media (prefers-color-scheme: dark) {
+    .sch-hd { color: #9ca3af; }
+    .sch-hd i { color: #d1d5db; }
+    .sch-open { color: #9ca3af; }
+    .sch-open:hover { color: #e5e7eb; }
+    .srow { background: rgba(255,255,255,.07); }
+    .srow .st i { color: #9aa1a5; }
+    .srow button { color: #9aa1a5; }
+    .srow button:hover { color: #f87171; }
+    .sch-form textarea, .sch-form select, .sch-form input {
+      background: #37424a; color: #e5e7eb; border-color: rgba(255,255,255,.18); color-scheme: dark; }
+    .sch-form textarea::placeholder { color: #8b939a; }
+    .frow button { background: #37424a; color: #e5e7eb; border-color: rgba(255,255,255,.18); }
+    .frow button:hover { background: #435159; }
+    .msg { color: #fbbf24; }
+  }
 `;
 
 const SCHED_SCRIPT = `
