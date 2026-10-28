@@ -16,7 +16,9 @@ export const parameters = {
   type: "object",
   properties: {
     action: { type: "string", enum: ["add", "list", "remove", "enable", "disable"], description: "操作" },
-    cron: { type: "string", description: "5 段 cron（分 时 日 月 周），如 \"0 9 * * 1\" 表示每周一 9:00" },
+    cron: { type: "string", description: "5 段 cron（分 时 日 月 周），如 \"0 9 * * 1\" 表示每周一 9:00；kind=once 时忽略" },
+    kind: { type: "string", enum: ["cron", "once"], description: "cron=周期任务（默认）；once=指定一次" },
+    at: { type: "string", description: "kind=once 时的执行时间：ISO 字符串（如 2026-10-29T09:00:00+08:00）或毫秒时间戳" },
     task: { type: "string", description: "要派给 DSH 的任务内容" },
     label: { type: "string", description: "给人看的短标签，留空取任务前 40 字" },
     deliver: {
@@ -49,7 +51,9 @@ export async function execute(input, toolCtx) {
   if (input.action === "add") {
     try {
       const job = api.add({
+        kind: input.kind,
         cron: input.cron,
+        at: input.at,
         task: input.task,
         label: input.label,
         deliver: input.deliver || "none",

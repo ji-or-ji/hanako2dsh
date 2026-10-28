@@ -278,14 +278,52 @@ const SCHED_SCRIPT = `
       const $ = (id) => document.getElementById(id);
       if (!$("schList") || !SCH) return;
       let schData = { jobs: [], sessions: [] };
-      function cronOf() {
+
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function human(j) {
+        if (j.kind === "once") {
+          const d = new Date(j.at || 0);
+          return "一次性 · " + d.toLocaleString();
+        }
+        const c = String(j.cron || "").split(" ");
+        if (c.length === 5) {
+          const [mi, ho] = c;
+          if (ho === "*" && mi.startsWith("*/")) return "每 " + mi.slice(2) + " 分钟";
+          if (ho.startsWith("*/") && mi === "0") return "每 " + ho.slice(2) + " 小时";
+          if (c[2] !== "*" && c[4] === "*") return "每月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
+          if (c[4] !== "*") {
+            const w = "日一二三四五六"[Number(c[4]) % 7];
+            return "每周" + w + " " + pad(Number(ho)) + ":" + pad(Number(mi));
+          }
+          return "每天 " + pad(Number(ho)) + ":" + pad(Number(mi));
+        }
+        return j.cron || "";
+      }
+      function buildFreq() {
         const f = $("fFreq").value;
         const tm = ($("fTime").value || "09:00").split(":");
         const h = Number(tm[0]) || 0, m = Number(tm[1]) || 0;
-        if (f === "hourly") return m + " * * * *";
-        if (f === "custom") return $("fCron").value.trim();
-        if (f === "weekly") return m + " " + h + " * * " + $("fDow").value;
-        return m + " " + h + " * * *";
+        if (f === "interval") {
+          const n = Math.max(1, Number($("fEvery").value) || 1);
+          const unit = $("fUnit").value;
+          if (unit === "hour") return { kind: "cron", cron: "0 */" + Math.min(23, n) + " * * *" };
+          return { kind: "cron", cron: "*/" + Math.min(59, n) + " * * * *" };
+        }
+        if (f === "weekly") return { kind: "cron", cron: m + " " + h + " * * " + $("fDow").value };
+        if (f === "monthly") return { kind: "cron", cron: m + " " + h + " " + (Number($("fDom").value) || 1) + " * *" };
+        if (f === "once") return { kind: "once", at: new Date($("fOnce").value || 0).getTime() };
+        if (f === "cron") return { kind: "cron", cron: $("fCron").value.trim() };
+        return { kind: "cron", cron: m + " " + h + " * * *" };
+      }
+      function syncRows() {
+        const f = $("fFreq").value;
+        $("rowWeek").hidden = f !== "weekly";
+        $("rowMonth").hidden = f !== "monthly";
+        $("rowInterval").hidden = f !== "interval";
+        $("rowOnce").hidden = f !== "once";
+        $("rowCron").hidden = f !== "cron";
+        $("fTime").hidden = f === "interval" || f === "once" || f === "cron";
+        $("rowSess").hidden = $("fDeliver").value !== "session";
       }
       function renderList() {
         const box = $("schList");
@@ -304,7 +342,7 @@ const SCHED_SCRIPT = `
           const b = document.createElement("b"); b.textContent = j.label || j.task;
           const i = document.createElement("i");
           const dest = { none: "不发送", session: "发会话", new: "发新会话" }[j.deliver] || "";
-          i.textContent = j.cron + " · " + (j.nextRunAt ? new Date(j.nextRunAt).toLocaleString() : "已停用") + " · " + dest;
+          i.textContent = human(j) + " · " + (j.nextRunAt ? "下次 " + new Date(j.nextRunAt).toLocaleString() : "已停用") + " · " + dest;
           st.append(b, i);
           const tg = document.createElement("button"); tg.textContent = j.enabled ? "停用" : "启用";
           tg.onclick = () => post({ action: "toggle", id: j.id, enabled: !j.enabled });
@@ -343,31 +381,34 @@ const SCHED_SCRIPT = `
       $("schOpen").onclick = () => {
         const f = $("schForm");
         f.hidden = !f.hidden;
-        if (!f.hidden) load();
+        if (!f.hidden) { load(); syncRows(); }
       };
       $("fCancel").onclick = () => { $("schForm").hidden = true; $("fMsg").textContent = ""; };
-      $("fFreq").onchange = () => {
-        const f = $("fFreq").value;
-        $("fDow").hidden = f !== "weekly";
-        $("fTime").hidden = f === "hourly" || f === "custom";
-        $("fCron").hidden = f !== "custom";
-      };
-      $("fDeliver").onchange = () => { $("fSess").hidden = $("fDeliver").value !== "session"; };
+      $("fFreq").onchange = syncRows;
+      $("fDeliver").onchange = syncRows;
       $("fSave").onclick = async () => {
         const task = $("fTask").value.trim();
-        if (!task) { $("fMsg").textContent = "先写任务内容"; return; }
+        if (!task) { $("fMsg").textContent = "先写执行内容"; return; }
+        const freq = buildFreq();
+        if (freq.kind === "cron" && !freq.cron) { $("fMsg").textContent = "频率没填对"; return; }
+        if (freq.kind === "once" && !(freq.at > Date.now())) { $("fMsg").textContent = "指定一次的时间要在将来"; return; }
         const deliver = $("fDeliver").value;
-        const body = { action: "add", cron: cronOf(), task, deliver };
-        if (!body.cron) { $("fMsg").textContent = "频率没填对"; return; }
+        const body = { action: "add", kind: freq.kind, cron: freq.cron, at: freq.at, task, deliver };
+        const name = $("fName").value.trim();
+        if (name) body.label = name;
+        else body.label = task.slice(0, 14);
         if (deliver === "session") {
           const sp = $("fSess").value;
           if (!sp) { $("fMsg").textContent = "没有可选会话"; return; }
           body.sessionPath = sp;
         }
         const r = await post(body);
-        if (r && r.ok) { $("fTask").value = ""; $("schForm").hidden = true; }
+        if (r && r.ok) {
+          $("fTask").value = ""; $("fName").value = ""; $("schForm").hidden = true;
+        }
       };
       load();
+      syncRows();
     })();
 `;
 
@@ -449,30 +490,47 @@ function renderWidget(ctx) {
         <div class="sch-hd"><span>定时</span><i id="schCount"></i><button class="sch-open" id="schOpen" title="新建定时任务">＋</button></div>
         <div id="schList"></div>
         <div class="sch-form" id="schForm" hidden>
-          <textarea id="fTask" placeholder="要交给 DSH 的任务…"></textarea>
+          <input id="fName" placeholder="名称（可留空）">
           <div class="frow">
             <select id="fFreq">
               <option value="daily">每天</option>
               <option value="weekly">每周</option>
-              <option value="hourly">每小时</option>
-              <option value="custom">自定义</option>
+              <option value="monthly">每月</option>
+              <option value="interval">每隔多久</option>
+              <option value="once">指定一次</option>
+              <option value="cron">高级 Cron</option>
             </select>
-            <select id="fDow" hidden>
+            <input id="fTime" type="time" value="09:00">
+          </div>
+          <div class="frow" id="rowWeek" hidden>
+            <select id="fDow">
               <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
               <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option>
               <option value="0">周日</option>
             </select>
-            <input id="fTime" type="time" value="09:00">
-            <input id="fCron" hidden placeholder="分 时 日 月 周">
           </div>
+          <div class="frow" id="rowMonth" hidden>
+            <input id="fDom" type="number" min="1" max="31" value="1" placeholder="几号">
+          </div>
+          <div class="frow" id="rowInterval" hidden>
+            <input id="fEvery" type="number" min="1" value="2">
+            <select id="fUnit"><option value="minute">分钟</option><option value="hour">小时</option></select>
+          </div>
+          <div class="frow" id="rowOnce" hidden>
+            <input id="fOnce" type="datetime-local">
+          </div>
+          <div class="frow" id="rowCron" hidden>
+            <input id="fCron" placeholder="分 时 日 月 周">
+          </div>
+          <textarea id="fTask" placeholder="执行内容：要交给 DSH 的任务…"></textarea>
           <div class="frow">
             <select id="fDeliver">
-              <option value="none">不发送</option>
+              <option value="none">跑完不发送</option>
               <option value="session">发到指定会话</option>
               <option value="new">发到新会话</option>
             </select>
-            <select id="fSess" hidden></select>
           </div>
+          <div class="frow" id="rowSess" hidden><select id="fSess"></select></div>
           <div class="frow"><button id="fSave">保存</button><button id="fCancel">取消</button></div>
           <div class="msg" id="fMsg"></div>
         </div>
