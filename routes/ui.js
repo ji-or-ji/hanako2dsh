@@ -229,41 +229,128 @@ function winsHead(st) {
 }
 
 const SCHED_STYLES = `
-  #schBtn { position: fixed; right: 16px; bottom: 16px; z-index: 9999; height: 32px; padding: 0 12px 0 9px;
-    display: inline-flex; align-items: center; gap: 5px; border-radius: 16px;
-    border: 1px solid rgba(120,120,120,.32); background: #fff; color: #44403c;
-    font: 500 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif; cursor: pointer;
-    box-shadow: 0 3px 14px rgba(0,0,0,.16); opacity: .92; }
-  #schBtn:hover { opacity: 1; box-shadow: 0 4px 18px rgba(0,0,0,.2); }
-  #sch { position: fixed; right: 14px; bottom: 56px; z-index: 21; width: 332px; max-height: 76vh;
-    display: flex; flex-direction: column; border-radius: 14px; border: 1px solid rgba(128,128,128,.25);
-    background: rgba(252,250,245,.97); box-shadow: 0 10px 30px rgba(0,0,0,.14); backdrop-filter: blur(10px);
-    font: 12px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #3b3a36; }
-  #sch[hidden] { display: none; }
-  .sch-h { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px;
-    border-bottom: 1px solid rgba(128,128,128,.16); font-size: 13px; }
-  .sch-h button { border: 0; background: none; font-size: 16px; color: #9ca3af; cursor: pointer; }
-  .sch-body { padding: 10px 12px; overflow-y: auto; }
-  #schList { display: flex; flex-direction: column; gap: 6px; }
-  .srow { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(128,128,128,.08); }
+  .sch { border-top: 1px solid rgba(128,128,128,.16); margin-top: 6px; padding-top: 6px;
+    display: flex; flex-direction: column; gap: 4px; }
+  .sch-hd { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; }
+  .sch-hd i { font-style: normal; color: #6f6a61; }
+  .sch-open { margin-left: auto; border: 0; background: none; color: #9ca3af; cursor: pointer; font-size: 13px; line-height: 1; }
+  .sch-open:hover { color: #4b5563; }
+  #schList { display: flex; flex-direction: column; gap: 3px; max-height: 96px; overflow-y: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; background: rgba(128,128,128,.08); }
   .srow.off { opacity: .5; }
   .srow .st { flex: 1; overflow: hidden; }
-  .srow .st b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .srow .st i { font-style: normal; font-size: 11px; color: #8b867c; }
-  .srow button { border: 0; background: none; cursor: pointer; color: #9ca3af; font-size: 12px; }
+  .srow .st b { display: block; font-weight: 500; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow .st i { font-style: normal; font-size: 10px; color: #8b867c; }
+  .srow button { border: 0; background: none; cursor: pointer; color: #9ca3af; font-size: 10px; padding: 0 2px; }
   .srow button:hover { color: #dc2626; }
-  .sch-form { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid rgba(128,128,128,.16); }
-  .sch-form textarea, .sch-form select, .sch-form input {
-    font: inherit; color: inherit; border: 1px solid rgba(128,128,128,.3); border-radius: 8px;
-    background: #fff; padding: 5px 7px; }
-  .sch-form textarea { resize: vertical; min-height: 52px; }
-  .frow { display: flex; gap: 6px; }
+  .sch-form { display: flex; flex-direction: column; gap: 4px; }
+  .sch-form textarea, .sch-form select, .sch-form input { font: inherit; font-size: 11px; color: inherit;
+    border: 1px solid rgba(128,128,128,.28); border-radius: 6px; background: #fff; padding: 3px 5px; min-width: 0; }
+  .sch-form textarea { resize: vertical; min-height: 42px; }
+  .frow { display: flex; gap: 4px; }
   .frow > * { flex: 1; min-width: 0; }
-  #fAdd { border: 1px solid rgba(128,128,128,.3); border-radius: 8px; background: #fff;
-    padding: 6px 10px; cursor: pointer; font: inherit; }
-  #fAdd:hover { background: #f6f4ee; }
-  .msg { font-size: 11px; color: #b45309; min-height: 14px; }
+  .frow button { border: 1px solid rgba(128,128,128,.28); border-radius: 6px; background: #fff;
+    padding: 3px 6px; cursor: pointer; font: inherit; font-size: 11px; }
+  .msg { font-size: 10px; color: #b45309; min-height: 12px; }
+`;
+
+const SCHED_SCRIPT = `
+    (function () {
+      const SCH = BASE ? BASE + "/__sched" : "";
+      const $ = (id) => document.getElementById(id);
+      if (!$("schList") || !SCH) return;
+      let schData = { jobs: [], sessions: [] };
+      function cronOf() {
+        const f = $("fFreq").value;
+        const tm = ($("fTime").value || "09:00").split(":");
+        const h = Number(tm[0]) || 0, m = Number(tm[1]) || 0;
+        if (f === "hourly") return m + " * * * *";
+        if (f === "custom") return $("fCron").value.trim();
+        if (f === "weekly") return m + " " + h + " * * " + $("fDow").value;
+        return m + " " + h + " * * *";
+      }
+      function renderList() {
+        const box = $("schList");
+        box.textContent = "";
+        const jobs = schData.jobs || [];
+        const cnt = $("schCount");
+        if (cnt) cnt.textContent = jobs.length ? String(jobs.length) : "";
+        if (!jobs.length) {
+          const d = document.createElement("div"); d.className = "msg"; d.textContent = "还没有定时任务";
+          box.append(d); return;
+        }
+        for (const j of jobs) {
+          const row = document.createElement("div");
+          row.className = "srow" + (j.enabled ? "" : " off");
+          const st = document.createElement("div"); st.className = "st";
+          const b = document.createElement("b"); b.textContent = j.label || j.task;
+          const i = document.createElement("i");
+          const dest = { none: "不发送", session: "发会话", new: "发新会话" }[j.deliver] || "";
+          i.textContent = j.cron + " · " + (j.nextRunAt ? new Date(j.nextRunAt).toLocaleString() : "已停用") + " · " + dest;
+          st.append(b, i);
+          const tg = document.createElement("button"); tg.textContent = j.enabled ? "停用" : "启用";
+          tg.onclick = () => post({ action: "toggle", id: j.id, enabled: !j.enabled });
+          const rm = document.createElement("button"); rm.textContent = "删";
+          rm.onclick = () => post({ action: "remove", id: j.id });
+          row.append(st, tg, rm);
+          box.append(row);
+        }
+      }
+      async function load() {
+        try {
+          const r = await fetch(SCH + "?_=" + Date.now(), { cache: "no-store" });
+          schData = await r.json();
+          renderList();
+          const sel = $("fSess");
+          sel.textContent = "";
+          for (const s of schData.sessions || []) {
+            const o = document.createElement("option");
+            o.value = s.path; o.textContent = String(s.title).slice(0, 24);
+            sel.append(o);
+          }
+          if (!(schData.sessions || []).length) {
+            const o = document.createElement("option"); o.value = ""; o.textContent = "（没有可选会话）"; sel.append(o);
+          }
+        } catch (e) { $("fMsg").textContent = "读取失败：" + e.message; }
+      }
+      async function post(body) {
+        try {
+          const r = await fetch(SCH, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+          const j = await r.json();
+          $("fMsg").textContent = j.ok ? "" : (j.error || "操作失败");
+          await load();
+          return j;
+        } catch (e) { $("fMsg").textContent = "请求失败：" + e.message; return { ok: false }; }
+      }
+      $("schOpen").onclick = () => {
+        const f = $("schForm");
+        f.hidden = !f.hidden;
+        if (!f.hidden) load();
+      };
+      $("fCancel").onclick = () => { $("schForm").hidden = true; $("fMsg").textContent = ""; };
+      $("fFreq").onchange = () => {
+        const f = $("fFreq").value;
+        $("fDow").hidden = f !== "weekly";
+        $("fTime").hidden = f === "hourly" || f === "custom";
+        $("fCron").hidden = f !== "custom";
+      };
+      $("fDeliver").onchange = () => { $("fSess").hidden = $("fDeliver").value !== "session"; };
+      $("fSave").onclick = async () => {
+        const task = $("fTask").value.trim();
+        if (!task) { $("fMsg").textContent = "先写任务内容"; return; }
+        const deliver = $("fDeliver").value;
+        const body = { action: "add", cron: cronOf(), task, deliver };
+        if (!body.cron) { $("fMsg").textContent = "频率没填对"; return; }
+        if (deliver === "session") {
+          const sp = $("fSess").value;
+          if (!sp) { $("fMsg").textContent = "没有可选会话"; return; }
+          body.sessionPath = sp;
+        }
+        const r = await post(body);
+        if (r && r.ok) { $("fTask").value = ""; $("schForm").hidden = true; }
+      };
+      load();
+    })();
 `;
 
 function renderPage(ctx) {
@@ -297,43 +384,8 @@ function renderPage(ctx) {
   const base = `http://127.0.0.1:${st.proxyPort}`;
   return doc(
     "page",
-    PAGE_STYLES + SCHED_STYLES,
-    `<iframe id="frame" src="${proxyUrl}" allow="clipboard-read; clipboard-write"></iframe>
-    <button id="schBtn" title="定时任务"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.4V8l2.5 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>定时</span></button>
-    <div id="sch" hidden>
-      <div class="sch-h"><b>定时任务</b><button id="schX">×</button></div>
-      <div class="sch-body">
-        <div id="schList"></div>
-        <div class="sch-form">
-          <textarea id="fTask" placeholder="要交给 DSH 的任务…"></textarea>
-          <div class="frow">
-            <select id="fFreq">
-              <option value="daily">每天</option>
-              <option value="weekly">每周</option>
-              <option value="hourly">每小时</option>
-              <option value="custom">自定义 cron</option>
-            </select>
-            <select id="fDow" hidden>
-              <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
-              <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option>
-              <option value="0">周日</option>
-            </select>
-            <input id="fTime" type="time" value="09:00">
-            <input id="fCron" hidden placeholder="分 时 日 月 周">
-          </div>
-          <div class="frow">
-            <select id="fDeliver">
-              <option value="none">跑完不发送</option>
-              <option value="session">发到指定会话</option>
-              <option value="new">发到新会话</option>
-            </select>
-            <select id="fSess" hidden></select>
-          </div>
-          <button id="fAdd">创建任务</button>
-          <div class="msg" id="fMsg"></div>
-        </div>
-      </div>
-    </div>`,
+    PAGE_STYLES,
+    `<iframe id="frame" src="${proxyUrl}" allow="clipboard-read; clipboard-write"></iframe>`,
     `
     const BASE = ${JSON.stringify(base)};
     // 心跳轮询：一旦进入派活或实例掉线，就把页面交给入口层（刷成提示页/引导页）
@@ -351,92 +403,6 @@ function renderPage(ctx) {
     }
     setTimeout(poll, 800);
 
-    // ── 定时任务面板（图形化，不靠命令行）──
-    const SCH = BASE + "/__sched";
-    const $ = (id) => document.getElementById(id);
-    let schData = { jobs: [], sessions: [] };
-    function cronOf() {
-      const f = $("fFreq").value;
-      const tm = ($("fTime").value || "09:00").split(":");
-      const h = Number(tm[0]) || 0, m = Number(tm[1]) || 0;
-      if (f === "hourly") return m + " * * * *";
-      if (f === "custom") return $("fCron").value.trim();
-      if (f === "weekly") return m + " " + h + " * * " + $("fDow").value;
-      return m + " " + h + " * * *";
-    }
-    function renderList() {
-      const box = $("schList");
-      box.textContent = "";
-      if (!schData.jobs || !schData.jobs.length) {
-        const d = document.createElement("div"); d.className = "msg"; d.textContent = "还没有定时任务";
-        box.append(d); return;
-      }
-      for (const j of schData.jobs) {
-        const row = document.createElement("div");
-        row.className = "srow" + (j.enabled ? "" : " off");
-        const st = document.createElement("div"); st.className = "st";
-        const b = document.createElement("b"); b.textContent = j.label || j.task;
-        const i = document.createElement("i");
-        const dest = { none: "不发送", session: "发会话", new: "发新会话" }[j.deliver] || "";
-        i.textContent = j.cron + " · " + (j.nextRunAt ? "下次 " + new Date(j.nextRunAt).toLocaleString() : "已停用") + " · " + dest;
-        st.append(b, i);
-        const tg = document.createElement("button"); tg.textContent = j.enabled ? "停用" : "启用";
-        tg.onclick = () => post({ action: "toggle", id: j.id, enabled: !j.enabled });
-        const rm = document.createElement("button"); rm.textContent = "删除";
-        rm.onclick = () => post({ action: "remove", id: j.id });
-        row.append(st, tg, rm);
-        box.append(row);
-      }
-    }
-    async function load() {
-      try {
-        const r = await fetch(SCH + "?_=" + Date.now(), { cache: "no-store" });
-        schData = await r.json();
-        renderList();
-        const sel = $("fSess");
-        sel.textContent = "";
-        for (const s of schData.sessions || []) {
-          const o = document.createElement("option");
-          o.value = s.path; o.textContent = String(s.title).slice(0, 28);
-          sel.append(o);
-        }
-        if (!(schData.sessions || []).length) {
-          const o = document.createElement("option"); o.value = ""; o.textContent = "（没有可选会话）"; sel.append(o);
-        }
-      } catch (e) { $("fMsg").textContent = "读取失败：" + e.message; }
-    }
-    async function post(body) {
-      try {
-        const r = await fetch(SCH, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-        const j = await r.json();
-        $("fMsg").textContent = j.ok ? "" : (j.error || "操作失败");
-        await load();
-        return j;
-      } catch (e) { $("fMsg").textContent = "请求失败：" + e.message; return { ok: false }; }
-    }
-    $("schBtn").onclick = () => { const p = $("sch"); p.hidden = !p.hidden; if (!p.hidden) load(); };
-    $("schX").onclick = () => { $("sch").hidden = true; };
-    $("fFreq").onchange = () => {
-      const f = $("fFreq").value;
-      $("fDow").hidden = f !== "weekly";
-      $("fTime").hidden = f === "hourly" || f === "custom";
-      $("fCron").hidden = f !== "custom";
-    };
-    $("fDeliver").onchange = () => { $("fSess").hidden = $("fDeliver").value !== "session"; };
-    $("fAdd").onclick = async () => {
-      const task = $("fTask").value.trim();
-      if (!task) { $("fMsg").textContent = "先写任务内容"; return; }
-      const deliver = $("fDeliver").value;
-      const body = { action: "add", cron: cronOf(), task, deliver };
-      if (!body.cron) { $("fMsg").textContent = "频率没填对"; return; }
-      if (deliver === "session") {
-        const sp = $("fSess").value;
-        if (!sp) { $("fMsg").textContent = "没有可选会话"; return; }
-        body.sessionPath = sp;
-      }
-      const r = await post(body);
-      if (r && r.ok) $("fTask").value = "";
-    };
     `,
   );
 }
@@ -449,7 +415,7 @@ function renderWidget(ctx) {
   const base = st.proxyPort ? `http://127.0.0.1:${st.proxyPort}` : "";
   return doc(
     "widget",
-    WIDGET_STYLES,
+    WIDGET_STYLES + SCHED_STYLES,
     `<div class="card">
       <div class="hd"><span class="led ${v.led}" id="led"></span><span id="label">${escapeHtml(v.label)}</span></div>
       <div class="sub" id="sub">${escapeHtml(v.sub)}</div>
@@ -461,6 +427,38 @@ function renderWidget(ctx) {
         <button class="t-off" id="themeOff" title="不再提示">不再提示</button>
       </div>
       <div class="tl" id="tl">${tlRows(st.timeline)}</div>
+      <div class="sch">
+        <div class="sch-hd"><span>定时</span><i id="schCount"></i><button class="sch-open" id="schOpen" title="新建定时任务">＋</button></div>
+        <div id="schList"></div>
+        <div class="sch-form" id="schForm" hidden>
+          <textarea id="fTask" placeholder="要交给 DSH 的任务…"></textarea>
+          <div class="frow">
+            <select id="fFreq">
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+              <option value="hourly">每小时</option>
+              <option value="custom">自定义</option>
+            </select>
+            <select id="fDow" hidden>
+              <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+              <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option>
+              <option value="0">周日</option>
+            </select>
+            <input id="fTime" type="time" value="09:00">
+            <input id="fCron" hidden placeholder="分 时 日 月 周">
+          </div>
+          <div class="frow">
+            <select id="fDeliver">
+              <option value="none">不发送</option>
+              <option value="session">发到指定会话</option>
+              <option value="new">发到新会话</option>
+            </select>
+            <select id="fSess" hidden></select>
+          </div>
+          <div class="frow"><button id="fSave">保存</button><button id="fCancel">取消</button></div>
+          <div class="msg" id="fMsg"></div>
+        </div>
+      </div>
       <button class="btn-abort" id="abort" disabled>急停</button>
     </div>`,
     `
@@ -592,6 +590,7 @@ function renderWidget(ctx) {
       setTimeout(poll, 1500);
     }
     setTimeout(poll, 500);
+    ${SCHED_SCRIPT}
     `,
   );
 }
