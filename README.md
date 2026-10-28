@@ -139,14 +139,15 @@ hanako2dsh_control { "action": "unpinCwd" }                       ← 解除（�
 | --- | --- |
 | ![浅色](https://raw.githubusercontent.com/ji-or-ji/hanako2dsh/main/docs/theme-light.png) | ![深色](https://raw.githubusercontent.com/ji-or-ji/hanako2dsh/main/docs/theme-dark.png) |
 
-**前置**：镜像所在的 DSH 需要装了 [`dsh-themes`](https://www.npmjs.com/package/dsh-themes)。没装的话插件会安静跳过（并告诉你）。
+**做法（1.8.2 起）：由插件自己注入，不再依赖第三方**
 
-**行为（只装，不抢）**：
+DSH 把主题变量写在 `<body>` 的内联 `style` 上，内联优先级高于普通样式表，所以直接写 CSS 是压不过的 —— 我们注入的规则用 `body` + `!important`，并用 `body[data-ds-dark-theme]` 做深色覆盖。页面本来就由代理转发，所以这一步与 DSH 装了什么主题插件无关。
 
-- 检测到 `dsh-themes` → **只有这张卡还不存在时**，才把它追加进 `~/.dsh/dsh-themes.json` 的 `custom[]`（写前留一份 `.bak`）
-- **已经有了就完全不碰** —— 你自己改过的颜色、变体都会保留；插件永不覆盖它
-- **不修改** `current` / `mixed` —— 要切主题由你在 DSH 的「外观」里自己点
-- 只要卡在、但还没切到它，侧栏会提示一句「Hanako 皮肤已就绪」，点「**不再提示**」就不再打扰；一旦你切到了这张卡，提示自动消失
+- 主题源：`themes/hanaagent.json`（明暗各 95 个 token）
+- 只碰 `text/html` 响应，JS / CSS / 图片 / 接口原样透传
+- **开关在 Hana 这边**：设置里的 `skinEnabled`，或侧栏窗格的「皮肤」行点一下切换；关了刷新镜像页即恢复 DSH 默认配色
+
+> 历史做法（1.8.1 及以前）：检出 `dsh-themes` 就只把卡片追加进它的 `custom[]`，不抢 `current`/`mixed`。这套机制在 DSH 0.2.1-rc.x 上失效了（`dsh-themes@0.2.1` 在那边注册不了 `/api/dsh-themes`），所以改成自己接管；那段代码仍在，`dsh-themes` 恢复后会继续兼容。
 
 ---
 

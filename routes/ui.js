@@ -286,6 +286,10 @@ function renderWidget(ctx) {
       <div class="whead" id="whead"${winsHead(st).hidden ? " hidden" : ""}><span id="wheadText">${escapeHtml(winsHead(st).text)}</span></div>
       <div class="wins" id="wins"${st.windowsCollapsed === true ? " hidden" : ""}>${winsRows(st.windows)}</div>
       <div class="prog" id="prog">${escapeHtml(st.progress?.text || "")}</div>
+      <div class="theme" id="skin">
+        <span class="t-txt" id="skinTxt">皮肤：由插件注入</span>
+        <button class="t-off" id="skinBtn" title="切换后刷新镜像页生效">切换</button>
+      </div>
       <div class="theme" id="theme"${st.theme?.hint ? "" : " hidden"}>
         <span class="t-txt">Hanako 皮肤已就绪 · 在 DSH 的「外观」里选 <b>HanaAgent</b></span>
         <button class="t-off" id="themeOff" title="不再提示">不再提示</button>
@@ -389,6 +393,21 @@ function renderWidget(ctx) {
       el("theme").hidden = true;
       try { await fetch(CTL + "?action=theme_hint_off&_=" + Date.now(), { cache: "no-store" }); } catch (e) {}
     });
+    let skinOn = true;
+    function paintSkin(on) {
+      skinOn = on !== false;
+      const t = el("skinTxt"), b = el("skinBtn");
+      if (!t || !b) return;
+      t.textContent = skinOn ? "皮肤：开 · 刷新镜像生效" : "皮肤：关 · 刷新镜像生效";
+      b.textContent = skinOn ? "关闭" : "开启";
+    }
+    el("skinBtn").addEventListener("click", async () => {
+      if (!CTL) return;
+      try {
+        await fetch(CTL + "?action=skin_toggle&_=" + Date.now(), { cache: "no-store" });
+        paintSkin(!skinOn);
+      } catch (e) {}
+    });
     async function poll() {
       if (!HB) { if (++miss > 3) { location.reload(); return; } setTimeout(poll, 2500); return; }
       try {
@@ -401,6 +420,7 @@ function renderWidget(ctx) {
         el("sub").textContent = v.sub;
         el("prog").textContent = s.progress || "";
         if (s.theme) el("theme").hidden = !s.theme.hint;
+        if (s.skin) paintSkin(s.skin.enabled !== false);
         if (!aborting) el("abort").disabled = !s.running;
         renderWins(s.windows, s.windowsCollapsed === true);
         renderTimeline(s.timeline);
