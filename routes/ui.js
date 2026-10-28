@@ -295,6 +295,8 @@ const SCHED_SCRIPT = `
           const [mi, ho] = c;
           if (ho === "*" && mi.startsWith("*/")) return "每 " + mi.slice(2) + " 分钟";
           if (ho.startsWith("*/") && mi === "0") return "每 " + ho.slice(2) + " 小时";
+          if (c[2] !== "*" && c[4] === "*" && c[3] !== "*") return "每年 " + c[3] + " 月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
+          if (c[2] !== "*" && c[4] === "*" && c[2] >= 29) return "每月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
           if (c[2] !== "*" && c[4] === "*") return "每月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
           if (c[4] !== "*") {
             const w = "日一二三四五六"[Number(c[4]) % 7];
@@ -331,7 +333,10 @@ const SCHED_SCRIPT = `
           const w = "日一二三四五六"[Number($("fDow").value) % 7];
           return "每周" + w + " " + t + " 执行";
         }
-        if (f === "monthly") return "每月 " + (Number($("fDom").value) || 1) + " 日 " + t + " 执行";
+        if (f === "monthly") {
+          const dom = Number($("fDom").value) || 1;
+          return "每月 " + dom + " 日 " + t + " 执行" + (dom >= 29 ? "（没有这一天的月份跳过）" : "");
+        }
         if (f === "once") {
           const v = $("fOnce").value;
           if (!v) return "选一个将来的时间";
