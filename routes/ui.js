@@ -90,7 +90,14 @@ const WIDGET_STYLES = `
   .whead[hidden] { display: none; }
   .whead .wc { color: #6f6a61; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .win { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #f3f4f6; color: #6b7280;
-    cursor: pointer; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    cursor: pointer; max-width: 150px; display: inline-flex; align-items: center; gap: 4px; }
+  .win .wl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .win .wx { font-weight: 600; opacity: .3; font-size: 11px; line-height: 1; padding: 0 1px; }
+  .win:hover .wx { opacity: .75; }
+  .win .wx:hover { color: #dc2626; opacity: 1; }
+  .whead .clr { margin-left: auto; font-size: 11px; color: #9ca3af; background: none; border: 0;
+    padding: 0 2px; cursor: pointer; }
+  .whead .clr:hover { color: #dc2626; }
   .win.on { background: #e0e7ff; color: #4338ca; cursor: default; }
   .prog { font-size: 12px; color: #3b82f6; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .prog:empty { display: none; }
@@ -202,7 +209,9 @@ function winsRows(list) {
   return list
     .map(
       (w) =>
-        `<span class="win${w.active ? " on" : ""}" data-key="${escapeHtml(w.key)}">${escapeHtml(w.label)}</span>`,
+        `<span class="win${w.active ? " on" : ""}" data-key="${escapeHtml(w.key)}">` +
+        `<span class="wl">${escapeHtml(w.label)}</span>` +
+        `<b class="wx" data-x="${escapeHtml(w.key)}" title="从列表移除（不删会话）">×</b></span>`,
     )
     .join("");
 }
@@ -283,13 +292,9 @@ function renderWidget(ctx) {
     `<div class="card">
       <div class="hd"><span class="led ${v.led}" id="led"></span><span id="label">${escapeHtml(v.label)}</span></div>
       <div class="sub" id="sub">${escapeHtml(v.sub)}</div>
-      <div class="whead" id="whead"${winsHead(st).hidden ? " hidden" : ""}><span id="wheadText">${escapeHtml(winsHead(st).text)}</span></div>
+      <div class="whead" id="whead"${winsHead(st).hidden ? " hidden" : ""}><span id="wheadText">${escapeHtml(winsHead(st).text)}</span><button class="clr" id="winsClear" title="清空列表（不删会话）">清空</button></div>
       <div class="wins" id="wins"${st.windowsCollapsed === true ? " hidden" : ""}>${winsRows(st.windows)}</div>
       <div class="prog" id="prog">${escapeHtml(st.progress?.text || "")}</div>
-      <div class="theme" id="skin">
-        <span class="t-txt" id="skinTxt">皮肤：由插件注入</span>
-        <button class="t-off" id="skinBtn" title="切换后刷新镜像页生效">切换</button>
-      </div>
       <div class="theme" id="theme"${st.theme?.hint ? "" : " hidden"}>
         <span class="t-txt">Hanako 皮肤已就绪 · 在 DSH 的「外观」里选 <b>HanaAgent</b></span>
         <button class="t-off" id="themeOff" title="不再提示">不再提示</button>
@@ -344,7 +349,15 @@ function renderWidget(ctx) {
       for (const w of list) {
         const s = document.createElement("span");
         s.className = "win" + (w.active ? " on" : "");
-        s.textContent = w.label;
+        const lab = document.createElement("span"); lab.className = "wl"; lab.textContent = w.label;
+        const x = document.createElement("b"); x.className = "wx"; x.textContent = "×"; x.title = "从列表移除（不删会话）";
+        x.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          if (!CTL) return;
+          fetch(CTL + "?action=win_hide&key=" + encodeURIComponent(w.key) + "&_=" + Date.now(), { cache: "no-store" })
+            .then(function () { poll(); }).catch(function () {});
+        });
+        s.append(lab, x);
         s.title = w.key;
         (function (win) {
           s.addEventListener("click", function () {
@@ -359,6 +372,12 @@ function renderWidget(ctx) {
     el("whead").addEventListener("click", function () {
       if (!CTL) return;
       fetch(CTL + "?action=windows_toggle&_=" + Date.now(), { cache: "no-store" })
+        .then(function () { poll(); }).catch(function () {});
+    });
+    el("winsClear").addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      if (!CTL) return;
+      fetch(CTL + "?action=wins_clear&_=" + Date.now(), { cache: "no-store" })
         .then(function () { poll(); }).catch(function () {});
     });
     (function () {
@@ -393,21 +412,6 @@ function renderWidget(ctx) {
       el("theme").hidden = true;
       try { await fetch(CTL + "?action=theme_hint_off&_=" + Date.now(), { cache: "no-store" }); } catch (e) {}
     });
-    let skinOn = true;
-    function paintSkin(on) {
-      skinOn = on !== false;
-      const t = el("skinTxt"), b = el("skinBtn");
-      if (!t || !b) return;
-      t.textContent = skinOn ? "皮肤：开 · 刷新镜像生效" : "皮肤：关 · 刷新镜像生效";
-      b.textContent = skinOn ? "关闭" : "开启";
-    }
-    el("skinBtn").addEventListener("click", async () => {
-      if (!CTL) return;
-      try {
-        await fetch(CTL + "?action=skin_toggle&_=" + Date.now(), { cache: "no-store" });
-        paintSkin(!skinOn);
-      } catch (e) {}
-    });
     async function poll() {
       if (!HB) { if (++miss > 3) { location.reload(); return; } setTimeout(poll, 2500); return; }
       try {
@@ -420,7 +424,6 @@ function renderWidget(ctx) {
         el("sub").textContent = v.sub;
         el("prog").textContent = s.progress || "";
         if (s.theme) el("theme").hidden = !s.theme.hint;
-        if (s.skin) paintSkin(s.skin.enabled !== false);
         if (!aborting) el("abort").disabled = !s.running;
         renderWins(s.windows, s.windowsCollapsed === true);
         renderTimeline(s.timeline);
