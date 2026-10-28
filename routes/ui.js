@@ -252,6 +252,9 @@ const SCHED_STYLES = `
   .frow button { border: 1px solid rgba(128,128,128,.28); border-radius: 6px; background: #fff;
     padding: 3px 6px; cursor: pointer; font: inherit; font-size: 11px; }
   .msg { font-size: 10px; color: #b45309; min-height: 12px; }
+  .num { flex: 0 0 58px !important; text-align: center; }
+  .unit { align-self: center; font-size: 11px; color: #8b867c; flex: none; }
+  .hint { font-size: 10px; color: #6f6a61; line-height: 1.4; min-height: 13px; }
   /* 任何带 hidden 的子元素都必须真的隐藏（否则 display:flex 会盖掉 UA 的 [hidden]） */
   .sch [hidden] { display: none !important; }
   @media (prefers-color-scheme: dark) {
@@ -269,6 +272,8 @@ const SCHED_STYLES = `
     .frow button { background: #37424a; color: #e5e7eb; border-color: rgba(255,255,255,.18); }
     .frow button:hover { background: #435159; }
     .msg { color: #fbbf24; }
+    .unit { color: #9aa1a5; }
+    .hint { color: #9aa1a5; }
   }
 `;
 
@@ -315,6 +320,29 @@ const SCHED_SCRIPT = `
         if (f === "cron") return { kind: "cron", cron: $("fCron").value.trim() };
         return { kind: "cron", cron: m + " " + h + " * * *" };
       }
+      function describe() {
+        const f = $("fFreq").value;
+        const t = $("fTime").value || "09:00";
+        if (f === "interval") {
+          const n = Math.max(1, Number($("fEvery").value) || 1);
+          return "每 " + n + " " + ($("fUnit").value === "hour" ? "小时" : "分钟") + "执行";
+        }
+        if (f === "weekly") {
+          const w = "日一二三四五六"[Number($("fDow").value) % 7];
+          return "每周" + w + " " + t + " 执行";
+        }
+        if (f === "monthly") return "每月 " + (Number($("fDom").value) || 1) + " 日 " + t + " 执行";
+        if (f === "once") {
+          const v = $("fOnce").value;
+          if (!v) return "选一个将来的时间";
+          return new Date(v).toLocaleString() + " 执行一次";
+        }
+        if (f === "cron") {
+          const c = $("fCron").value.trim();
+          return c ? "按 cron " + c + " 执行" : "填 5 段 cron（分 时 日 月 周）";
+        }
+        return "每天 " + t + " 执行";
+      }
       function syncRows() {
         const f = $("fFreq").value;
         $("rowWeek").hidden = f !== "weekly";
@@ -324,6 +352,8 @@ const SCHED_SCRIPT = `
         $("rowCron").hidden = f !== "cron";
         $("fTime").hidden = f === "interval" || f === "once" || f === "cron";
         $("rowSess").hidden = $("fDeliver").value !== "session";
+        const h = $("fHint");
+        if (h) h.textContent = describe();
       }
       function renderList() {
         const box = $("schList");
@@ -386,6 +416,10 @@ const SCHED_SCRIPT = `
       $("fCancel").onclick = () => { $("schForm").hidden = true; $("fMsg").textContent = ""; };
       $("fFreq").onchange = syncRows;
       $("fDeliver").onchange = syncRows;
+      for (const id of ["fTime", "fDow", "fDom", "fEvery", "fUnit", "fOnce", "fCron"]) {
+        const n = $(id);
+        if (n) { n.addEventListener("input", syncRows); n.addEventListener("change", syncRows); }
+      }
       $("fSave").onclick = async () => {
         const task = $("fTask").value.trim();
         if (!task) { $("fMsg").textContent = "先写执行内容"; return; }
@@ -510,10 +544,11 @@ function renderWidget(ctx) {
             </select>
           </div>
           <div class="frow" id="rowMonth" hidden>
-            <input id="fDom" type="number" min="1" max="31" value="1" placeholder="几号">
+            <input id="fDom" class="num" type="number" min="1" max="31" value="1">
+            <span class="unit">日</span>
           </div>
           <div class="frow" id="rowInterval" hidden>
-            <input id="fEvery" type="number" min="1" value="2">
+            <input id="fEvery" class="num" type="number" min="1" value="2">
             <select id="fUnit"><option value="minute">分钟</option><option value="hour">小时</option></select>
           </div>
           <div class="frow" id="rowOnce" hidden>
@@ -522,6 +557,7 @@ function renderWidget(ctx) {
           <div class="frow" id="rowCron" hidden>
             <input id="fCron" placeholder="分 时 日 月 周">
           </div>
+          <div class="hint" id="fHint"></div>
           <textarea id="fTask" placeholder="执行内容：要交给 DSH 的任务…"></textarea>
           <div class="frow">
             <select id="fDeliver">
