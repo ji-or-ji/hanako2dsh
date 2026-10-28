@@ -151,6 +151,30 @@ DSH 把主题变量写在 `<body>` 的内联 `style` 上，内联优先级高于
 
 ---
 
+## 定时派活（1.9.0）
+
+把一条任务按期交给 DSH，跑完按需要投递结果。
+
+```
+hanako2dsh_schedule { "action": "add", "cron": "0 9 * * 1", "task": "巡一下工作区散落文件", "deliver": "new" }
+hanako2dsh_schedule { "action": "list" }        ← 看全部任务与下次运行时间
+hanako2dsh_schedule { "action": "remove", "id": "sch_xxx" }
+```
+
+**结果去向（deliver）**：
+
+| 值 | 行为 |
+| --- | --- |
+| `none` | 不发送，只留在侧栏时间线 |
+| `session` | 发到指定 Hana 会话（需同时给 `sessionPath`），用宿主 `session:send` |
+| `new` | 先新建一个 Hana 会话再发进去，`session:create` + `session:send` |
+
+**限制**：定时器跑在 Hana 进程里，**Hana 关着就不会触发**；重启后会按 cron 重新计算下次时间（错过的不会补跑）。
+
+另：官方 `@deepseek-ai/dsh-schedule` 是**DSH 会话内的定时提醒**（`schedule_create/list/delete`，跟会话走），和这里的跨会话定时不是一件事；插件会自动探测它装没装，结果在 `status.compat.schedule`。
+
+---
+
 ## 跨 DSH 版本的兼容层
 
 DSH 还在快速变动，所以这里刻意**不按“最新版”写死**，而是探测实装的东西：
