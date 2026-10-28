@@ -151,6 +151,21 @@ DSH 把主题变量写在 `<body>` 的内联 `style` 上，内联优先级高于
 
 ---
 
+## 跨 DSH 版本的兼容层
+
+DSH 还在快速变动，所以这里刻意**不按“最新版”写死**，而是探测实装的东西：
+
+| 探测对象 | 做法 | 退路 |
+| --- | --- | --- |
+| DSH 本体版本 | 启动时跑一次 `dsh --version`，结果进 `status.compat.dshVersion` | 拿不到就是 null，不影响任何功能 |
+| dsh-ops 条目 id | 读 `<profile>/node_modules/dsh-ops/cordis.patch.yml`，按它实际插入的 id 生成“禁用层” | 读不到则退回 0.3.x 的旧 id（shell/file/background/ptc） |
+| 登录取 cookie | 先走 `GET /?token=`，失败再走 0.2.1 新增的 `/connect` | 两条都失败才报错 |
+| 官方定时任务 | 探测 `@deepseek-ai/dsh-schedule` 是否装在该 profile | 未装则标 `installed:false` |
+
+为什么这么做：dsh-ops 0.3.x 的条目叫 `dsh-ops-shell` / `file` / `background` / `ptc`，0.4.x 换成了 `mode-minimal` / `mode-standard` / `mode-ptc` / `mode-cordis` / `discovery` / `panel` / `tui`——写死任何一套，另一半机器上就失效。
+
+---
+
 ## 从源码安装（开发者）
 
 把本目录放进 `${HANA_HOME}/plugin-dev-sources/`，用 EventBus 的 `plugin.dev.install`（或 `POST /api/plugins/dev/install`）装进 dev 槽；改完 `plugin.dev.reload`。注意：**入口之外的子模块有 ESM 缓存**，改了 `lib/`、`routes/`、`tools/` 需要重启 Hana 才生效。
