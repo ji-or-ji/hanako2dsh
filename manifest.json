@@ -1,57 +1,69 @@
 {
-  "manifestVersion": 1,
+  "manifestVersion": 2,
   "id": "hanako2dsh",
   "name": "Hanako2DSH",
-  "version": "1.9.7",
-  "description": "把本机官方的 DeepSeek Harness（DSH）接进 Hana：顶部开一个活的 DSH 页签，一句话把活派给它，结果自动回到对话；附带 Hanako 皮肤。",
-  "trust": "full-access",
-  "minAppVersion": "0.421.0",
-  "activationEvents": ["onStartup"],
-  "capabilities": ["network.fetch"],
+  "version": "2.0.0",
+  "entry": "index.js",
+  "icon": "assets/icon.png",
+  "description": "把本机官方的 DeepSeek Harness（DSH）接进 Hana：黑板上一整页活的 DSH，一句话把活派给它，结果自动回到对话；附带 Hanako 皮肤。",
+  "minAppVersion": "1.3.6-beta",
+  "capabilities": [
+    "app/tools.expose-to-model",
+    "app/runtime.execute",
+    "app/runtime.local-machine",
+    "app/runtime.network",
+    "app/tasks.manage",
+    "app/session.start-turn",
+    "app/sessions.manage"
+  ],
   "contributes": {
-    "page": {
-      "title": { "zh": "DSH", "en": "DSH" },
-      "route": "/page",
-      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 9h10M7 13h6\"/><circle cx=\"17\" cy=\"16.5\" r=\"1.6\" fill=\"currentColor\" stroke=\"none\"/></svg>"
-    },
-    "widget": {
-      "title": { "zh": "DSH 状态", "en": "DSH Status" },
-      "route": "/widget",
-      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 9h10M7 13h6\"/><circle cx=\"17\" cy=\"16.5\" r=\"1.6\" fill=\"currentColor\" stroke=\"none\"/></svg>"
-    },
-    "configuration": {
+    "cards": [
+      {
+        "id": "dsh",
+        "title": "DSH",
+        "description": "本机 DeepSeek Harness 的活页签，可在这里直接操作，也可以让 Agent 把活派给它。",
+        "route": "/dsh.html",
+        "realization": "page",
+        "siteNavEntry": true,
+        "cardForm": "edge-to-edge",
+        "face": { "image": "assets/dsh-cover.png" }
+      }
+    ],
+    "settings": {
       "title": "Hanako2DSH",
-      "properties": {
-        "dshAppDir": {
-          "type": "string",
-          "default": "",
-          "description": "DeepSeek Harness（官方桌面版）安装目录，即含 DeepSeek Harness.exe 的文件夹。留空则自动探测常见位置"
-        },
-        "autoStart": {
-          "type": "boolean",
-          "default": true,
-          "description": "Hana 启动时自动拉起 DSH web 实例并开启代理"
-        },
-        "defaultCwd": {
-          "type": "string",
-          "default": "",
-          "description": "派活（headless）时的默认工作目录，留空则用 Hana 工作区"
-        },
-        "permissionMode": {
-          "type": "string",
-          "enum": ["read-only", "workspace-write", "danger-full-access"],
-          "default": "danger-full-access",
-          "description": "权限等级（按会话下发 DSH_PERMISSION_MODE）。danger-full-access = 全程免审批、可越界；workspace-write = 只能改工作区，越界直接拒；read-only = 只读"
-        },
-        "themeHintDismissed": {
-          "type": "boolean",
-          "default": false,
-          "description": "是否已关掉侧栏的「Hanako 皮肤已就绪」提示。改回 false 可以让提示重新出现（或在窗格里点「不再提示」来关）"
-        },
-        "skinEnabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否由插件往镜像页注入 Hanako 皮肤（不依赖 dsh-themes）。关掉后刷新镜像页即恢复 DSH 默认配色"
+      "schema": {
+        "properties": {
+          "dshAppDir": {
+            "type": "string",
+            "title": "DSH 安装目录",
+            "default": "",
+            "description": "含 DeepSeek Harness.exe 的文件夹。留空则自动探测常见位置"
+          },
+          "autoStart": {
+            "type": "boolean",
+            "title": "随 Hana 自动拉起",
+            "default": true,
+            "description": "Hana 启动后自动拉起 DSH web 实例并开启本地代理"
+          },
+          "defaultCwd": {
+            "type": "string",
+            "title": "默认工作目录",
+            "default": "",
+            "description": "派活（headless）时的默认目录，留空则跟随当前会话"
+          },
+          "permissionMode": {
+            "type": "string",
+            "title": "权限等级",
+            "enum": ["read-only", "workspace-write", "danger-full-access"],
+            "default": "danger-full-access",
+            "description": "按会话下发 DSH_PERMISSION_MODE：danger-full-access 全程免审批；workspace-write 只能改工作区；read-only 只读"
+          },
+          "skinEnabled": {
+            "type": "boolean",
+            "title": "注入 Hanako 皮肤",
+            "default": true,
+            "description": "由代理往镜像页注入配色（不依赖 dsh-themes）。关掉后刷新页面即恢复 DSH 默认配色"
+          }
         }
       }
     }
