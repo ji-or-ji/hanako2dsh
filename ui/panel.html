@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSH 状态</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text, #cfd8e3);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .card { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px;
+    padding: 12px 14px 46px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #374151; }
+  .hd { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+  .led { width: 9px; height: 9px; border-radius: 50%; background: #9ca3af; flex: none; }
+  .led.ok { background: #22c55e }
+  .led.warn { background: #f59e0b; animation: pulse 1.2s ease-in-out infinite }
+  .led.busy { background: #3b82f6; animation: pulse 1.2s ease-in-out infinite }
+  .led.bad { background: #ef4444 }
+  @keyframes pulse { 0%,100% { opacity: .4 } 50% { opacity: 1 } }
+  .sub { font-size: 12px; color: #6b7280; }
+  .wins { display: flex; flex-wrap: wrap; gap: 4px; max-height: 76px; overflow-y: auto;
+    scrollbar-gutter: stable; }
+  .wins:empty { display: none; }
+  .wins::-webkit-scrollbar { width: 4px; height: 4px; }
+  .wins::-webkit-scrollbar-track { background: transparent; }
+  .wins::-webkit-scrollbar-thumb { background: rgba(128,128,128,.12); border-radius: 2px; transition: background .35s ease-out; }
+  .wins:hover::-webkit-scrollbar-thumb,
+  .wins.scrolling::-webkit-scrollbar-thumb { background: rgba(128,128,128,.45); }
+  .wins::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .whead { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af;
+    cursor: pointer; user-select: none; }
+  .whead[hidden] { display: none; }
+  .whead .wc { color: #6f6a61; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .win { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #f3f4f6; color: #6b7280;
+    cursor: pointer; max-width: 150px; display: inline-flex; align-items: center; gap: 4px; }
+  .win .wl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .win .wx { font-weight: 600; opacity: .3; font-size: 11px; line-height: 1; padding: 0 1px; }
+  .win:hover .wx { opacity: .75; }
+  .win .wx:hover { color: #dc2626; opacity: 1; }
+  .whead .clr { margin-left: auto; font-size: 11px; color: #9ca3af; background: none; border: 0;
+    padding: 0 2px; cursor: pointer; }
+  .whead .clr:hover { color: #dc2626; }
+  .win.on { background: #e0e7ff; color: #4338ca; cursor: default; }
+  .prog { font-size: 12px; color: #3b82f6; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prog:empty { display: none; }
+  .tl { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+    scrollbar-gutter: stable; }
+  .tl::-webkit-scrollbar { width: 4px; height: 4px; }
+  .tl::-webkit-scrollbar-track { background: transparent; }
+  .tl::-webkit-scrollbar-thumb { background: rgba(128,128,128,.12); border-radius: 2px;
+    transition: background .35s ease-out; }
+  .tl:hover::-webkit-scrollbar-thumb { background: rgba(128,128,128,.3); }
+  .tl.scrolling::-webkit-scrollbar-thumb { background: rgba(128,128,128,.55); }
+  .tl::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .tl-item { display: flex; align-items: baseline; gap: 6px; line-height: 1.45; }
+  .tl-time { flex: none; color: #9ca3af; font-size: 10px; font-variant-numeric: tabular-nums; }
+  .tl-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #9ca3af; position: relative; top: -1px; }
+  .tl-item.start .tl-dot { background: #6366f1 }
+  .tl-item.tool .tl-dot { background: #3b82f6 }
+  .tl-item.done .tl-dot { background: #22c55e }
+  .tl-item.fail .tl-dot { background: #ef4444 }
+  .tl-text { flex: 1; word-break: break-word; color: #4b5563; }
+  .tl-empty { color: #9ca3af; font-size: 12px; }
+  .btn-abort { position: absolute; right: 12px; bottom: 10px; padding: 5px 14px; border-radius: 999px;
+    border: 1px solid #ef4444; background: #fff; color: #ef4444; font-size: 12px; cursor: pointer;
+    font-family: inherit; transition: background .15s ease, color .15s ease; }
+  .btn-abort:hover { background: #ef4444; color: #fff }
+  .btn-abort:disabled { opacity: .4; cursor: default }
+  .theme { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+    background: #f5f1e9; border: 1px solid #e2ddd3; font-size: 11px; color: #6f6a61; line-height: 1.4; }
+  .theme[hidden] { display: none }
+  .theme .t-txt { flex: 1 }
+  .theme b { color: #2b2a26; font-weight: 600 }
+  .theme .t-off { flex: none; border: 1px solid #cfc9bf; background: transparent; color: #8b867c;
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+  .theme .t-off:hover { border-color: #a9a49a; color: #2b2a26 }
+  @media (prefers-color-scheme: dark) {
+    .card { color: #e5e7eb } .sub { color: #9ca3af } .tl-text { color: #d1d5db } .prog { color: #60a5fa }
+    .btn-abort { background: transparent }
+    .win { background: #374151; color: #9ca3af } .win.on { background: #312e81; color: #c7d2fe }
+    .whead .wc { color: #9aa1a5 }
+    .wins::-webkit-scrollbar-thumb { background: rgba(200,200,200,.1) }
+    .wins:hover::-webkit-scrollbar-thumb,
+    .wins.scrolling::-webkit-scrollbar-thumb { background: rgba(200,200,200,.42) }
+    .theme { background: #45535d; border-color: #55646e; color: #9aa1a5 }
+    .theme b { color: #dce6ec }
+    .theme .t-off { border-color: #55646e; color: #9aa1a5 }
+    .tl::-webkit-scrollbar-thumb { background: rgba(200,200,200,.1) }
+    .tl:hover::-webkit-scrollbar-thumb { background: rgba(200,200,200,.26) }
+    .tl.scrolling::-webkit-scrollbar-thumb { background: rgba(200,200,200,.45) }
+  }
+
+
+  .sch { border-top: 1px solid rgba(128,128,128,.16); margin-top: 6px; padding-top: 6px;
+    display: flex; flex-direction: column; gap: 4px; }
+  .sch-hd { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; }
+  .sch-hd i { font-style: normal; color: #6f6a61; }
+  .sch-open { margin-left: auto; border: 0; background: none; color: #9ca3af; cursor: pointer; font-size: 13px; line-height: 1; }
+  .sch-open:hover { color: #4b5563; }
+  #schList { display: flex; flex-direction: column; gap: 3px; max-height: 96px; overflow-y: auto; }
+  .srow { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; background: rgba(128,128,128,.08); }
+  .srow.off { opacity: .5; }
+  .srow .st { flex: 1; overflow: hidden; }
+  .srow .st b { display: block; font-weight: 500; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow .st i { font-style: normal; font-size: 10px; color: #8b867c; }
+  .srow button { border: 0; background: none; cursor: pointer; color: #9ca3af; font-size: 10px; padding: 0 2px; }
+  .srow button:hover { color: #dc2626; }
+  .sch-form { display: flex; flex-direction: column; gap: 4px; }
+  .sch-form textarea, .sch-form select, .sch-form input { font: inherit; font-size: 11px; color: inherit;
+    border: 1px solid rgba(128,128,128,.28); border-radius: 6px; background: #fff; padding: 3px 5px; min-width: 0; }
+  .sch-form textarea { resize: vertical; min-height: 42px; }
+  .frow { display: flex; gap: 4px; }
+  .frow > * { flex: 1; min-width: 0; }
+  .frow button { border: 1px solid rgba(128,128,128,.28); border-radius: 6px; background: #fff;
+    padding: 3px 6px; cursor: pointer; font: inherit; font-size: 11px; }
+  .msg { font-size: 10px; color: #b45309; min-height: 12px; }
+  .num { flex: 0 0 58px !important; text-align: center; }
+  .unit { align-self: center; font-size: 11px; color: #8b867c; flex: none; }
+  .hint { font-size: 10px; color: #6f6a61; line-height: 1.4; min-height: 13px; }
+  /* 任何带 hidden 的子元素都必须真的隐藏（否则 display:flex 会盖掉 UA 的 [hidden]） */
+  .sch [hidden] { display: none !important; }
+  @media (prefers-color-scheme: dark) {
+    .sch-hd { color: #9ca3af; }
+    .sch-hd i { color: #d1d5db; }
+    .sch-open { color: #9ca3af; }
+    .sch-open:hover { color: #e5e7eb; }
+    .srow { background: rgba(255,255,255,.07); }
+    .srow .st i { color: #9aa1a5; }
+    .srow button { color: #9aa1a5; }
+    .srow button:hover { color: #f87171; }
+    .sch-form textarea, .sch-form select, .sch-form input {
+      background: #37424a; color: #e5e7eb; border-color: rgba(255,255,255,.18); color-scheme: dark; }
+    .sch-form textarea::placeholder { color: #8b939a; }
+    .frow button { background: #37424a; color: #e5e7eb; border-color: rgba(255,255,255,.18); }
+    .frow button:hover { background: #435159; }
+    .msg { color: #fbbf24; }
+    .unit { color: #9aa1a5; }
+    .hint { color: #9aa1a5; }
+  }
+
+</style>
+</head>
+<body>
+<div class="card">
+      <div class="hd"><span class="led" id="led"></span><span id="label"></span></div>
+      <div class="sub" id="sub"></div>
+      <div class="whead" id="whead" hidden><span id="wheadText"></span><button class="clr" id="winsClear" title="清空列表（不删会话）">清空</button></div>
+      <div class="wins" id="wins"></div>
+      <div class="prog" id="prog"></div>
+      <div class="tl" id="tl"></div>
+      <div class="sch">
+        <div class="sch-hd"><span>定时</span><i id="schCount"></i><button class="sch-open" id="schOpen" title="新建定时任务">＋</button></div>
+        <div id="schList"></div>
+        <div class="sch-form" id="schForm" hidden>
+          <input id="fName" placeholder="名称（可留空）">
+          <div class="frow">
+            <select id="fFreq">
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+              <option value="monthly">每月</option>
+              <option value="interval">每隔多久</option>
+              <option value="once">指定一次</option>
+              <option value="cron">高级 Cron</option>
+            </select>
+            <input id="fTime" type="time" value="09:00">
+          </div>
+          <div class="frow" id="rowWeek" hidden>
+            <select id="fDow">
+              <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+              <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option>
+              <option value="0">周日</option>
+            </select>
+          </div>
+          <div class="frow" id="rowMonth" hidden>
+            <input id="fDom" class="num" type="number" min="1" max="31" value="1">
+            <span class="unit">日</span>
+          </div>
+          <div class="frow" id="rowInterval" hidden>
+            <input id="fEvery" class="num" type="number" min="1" value="2">
+            <select id="fUnit"><option value="minute">分钟</option><option value="hour">小时</option></select>
+          </div>
+          <div class="frow" id="rowOnce" hidden>
+            <input id="fOnce" type="datetime-local">
+          </div>
+          <div class="frow" id="rowCron" hidden>
+            <input id="fCron" placeholder="分 时 日 月 周">
+          </div>
+          <div class="hint" id="fHint"></div>
+          <textarea id="fTask" placeholder="执行内容：要交给 DSH 的任务…"></textarea>
+          <div class="frow">
+            <select id="fDeliver">
+              <option value="none">跑完不发送</option>
+              <option value="session">发到指定会话</option>
+              <option value="new">发到新会话</option>
+            </select>
+          </div>
+          <div class="frow" id="rowSess" hidden><select id="fSess"></select></div>
+          <div class="frow"><button id="fSave">保存</button><button id="fCancel">取消</button></div>
+          <div class="msg" id="fMsg"></div>
+        </div>
+      </div>
+      <button class="btn-abort" id="abort" disabled>急停</button>
+    </div>
+<script type="module">
+  import { hana } from "./assets/sdk.js";
+    const BASE = "http://127.0.0.1:41888";
+    const HB = BASE ? BASE + "/__hb" : "";
+    const CTL = BASE ? BASE + "/__ctl" : "";
+    const el = (id) => document.getElementById(id);
+    let miss = 0, aborting = false;
+    function pad(n) { return String(n).padStart(2, "0"); }
+    function fmt(ts) { const d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()); }
+    function view(s) {
+      if (s.chatting) return { led: "busy", label: "正在和大肥鱼交流…", sub: (s.chatAgent || "Hanako") + " 派活中" };
+      if (s.status === "ready") return { led: "ok", label: "大肥鱼在线", sub: "可直接派活" };
+      if (s.status === "starting") return { led: "warn", label: "正在唤醒大肥鱼…", sub: "拉起实例并登录" };
+      if (s.status === "error") return { led: "bad", label: "连接出错", sub: s.lastError || "查看诊断" };
+      return { led: "off", label: "大肥鱼未启动", sub: "打开页面即可唤醒" };
+    }
+    function renderTimeline(list) {
+      const box = el("tl");
+      if (!box) return;
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+      box.textContent = "";
+      if (!Array.isArray(list) || !list.length) {
+        const e = document.createElement("div"); e.className = "tl-empty"; e.textContent = "暂无派活记录"; box.append(e); return;
+      }
+      for (const it of list) {
+        const row = document.createElement("div"); row.className = "tl-item " + (it.kind || "");
+        const tm = document.createElement("span"); tm.className = "tl-time"; tm.textContent = fmt(it.ts || Date.now());
+        const dot = document.createElement("span"); dot.className = "tl-dot";
+        const tx = document.createElement("span"); tx.className = "tl-text"; tx.textContent = it.text || "";
+        row.append(tm, dot, tx); box.append(row);
+      }
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+    function renderWins(list, collapsed) {
+      const head = el("whead"), headText = el("wheadText"), box = el("wins");
+      if (!head || !box) return;
+      const many = Array.isArray(list) && list.length > 1;
+      head.hidden = !many;
+      if (many) {
+        const active = list.find(function (w) { return w.active; });
+        headText.textContent = (collapsed ? "\u25B8" : "\u25BE") + " 窗口 " + list.length + (collapsed && active ? " · " + active.label : "");
+      }
+      box.hidden = !!collapsed;
+      box.textContent = "";
+      if (!many || collapsed) return;
+      for (const w of list) {
+        const s = document.createElement("span");
+        s.className = "win" + (w.active ? " on" : "");
+        const lab = document.createElement("span"); lab.className = "wl"; lab.textContent = w.label;
+        const x = document.createElement("b"); x.className = "wx"; x.textContent = "×"; x.title = "从列表移除（不删会话）";
+        x.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          if (!CTL) return;
+          fetch(CTL + "?action=win_hide&key=" + encodeURIComponent(w.key) + "&_=" + Date.now(), { cache: "no-store" })
+            .then(function () { poll(); }).catch(function () {});
+        });
+        s.append(lab, x);
+        s.title = w.key;
+        (function (win) {
+          s.addEventListener("click", function () {
+            if (!CTL || win.active) return;
+            fetch(CTL + "?action=focus&key=" + encodeURIComponent(win.key) + "&_=" + Date.now(), { cache: "no-store" })
+              .then(function () { poll(); }).catch(function () {});
+          });
+        })(w);
+        box.append(s);
+      }
+    }
+    el("whead").addEventListener("click", function () {
+      if (!CTL) return;
+      fetch(CTL + "?action=windows_toggle&_=" + Date.now(), { cache: "no-store" })
+        .then(function () { poll(); }).catch(function () {});
+    });
+    el("winsClear").addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      if (!CTL) return;
+      fetch(CTL + "?action=wins_clear&_=" + Date.now(), { cache: "no-store" })
+        .then(function () { poll(); }).catch(function () {});
+    });
+    (function () {
+      const box = el("wins");
+      if (!box || !box.addEventListener) return;
+      let t = null;
+      box.addEventListener("scroll", function () {
+        box.classList.add("scrolling");
+        if (t) clearTimeout(t);
+        t = setTimeout(function () { box.classList.remove("scrolling"); }, 700);
+      }, { passive: true });
+    })();
+    // 滚动时短暂显色（对齐 Hana 原生：平时隐藏，滚起来才现，滚完淡回去）
+    (function () {
+      const box = el("tl");
+      if (!box || !box.addEventListener) return;
+      let t = null;
+      box.addEventListener("scroll", function () {
+        box.classList.add("scrolling");
+        if (t) clearTimeout(t);
+        t = setTimeout(function () { box.classList.remove("scrolling"); }, 700);
+      }, { passive: true });
+    })();
+    el("abort").addEventListener("click", async () => {
+      if (!CTL || aborting) return;
+      aborting = true; el("abort").disabled = true; el("abort").textContent = "急停中…";
+      try { await fetch(CTL + "?action=abort&_=" + Date.now(), { cache: "no-store" }); } catch (e) {}
+      setTimeout(() => { aborting = false; el("abort").disabled = false; el("abort").textContent = "急停"; }, 1500);
+    });
+    el("themeOff")?.addEventListener("click", async () => {
+      if (!CTL) return;
+      el("theme").hidden = true;
+      try { await fetch(CTL + "?action=theme_hint_off&_=" + Date.now(), { cache: "no-store" }); } catch (e) {}
+    });
+    async function poll() {
+      if (!HB) { if (++miss > 3) { location.reload(); return; } setTimeout(poll, 2500); return; }
+      try {
+        const r = await fetch(HB + "?_=" + Date.now(), { cache: "no-store" });
+        const s = await r.json();
+        miss = 0;
+        const v = view(s);
+        el("led").className = "led " + v.led;
+        el("label").textContent = v.label;
+        el("sub").textContent = v.sub;
+        el("prog").textContent = s.progress || "";
+        if (s.theme && el("theme")) el("theme").hidden = !s.theme.hint;
+        if (!aborting) el("abort").disabled = !s.running;
+        renderWins(s.windows, s.windowsCollapsed === true);
+        renderTimeline(s.timeline);
+      } catch (e) { if (++miss > 4) { location.reload(); return; } }
+      setTimeout(poll, 1500);
+    }
+    setTimeout(poll, 500);
+    
+
+    (function () {
+      const SCH = BASE ? BASE + "/__sched" : "";
+      const $ = (id) => document.getElementById(id);
+      if (!$("schList") || !SCH) return;
+      let schData = { jobs: [], sessions: [] };
+
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function human(j) {
+        if (j.kind === "once") {
+          const d = new Date(j.at || 0);
+          return "一次性 · " + d.toLocaleString();
+        }
+        const c = String(j.cron || "").split(" ");
+        if (c.length === 5) {
+          const [mi, ho] = c;
+          if (ho === "*" && mi.startsWith("*/")) return "每 " + mi.slice(2) + " 分钟";
+          if (ho.startsWith("*/") && mi === "0") return "每 " + ho.slice(2) + " 小时";
+          if (c[2] !== "*" && c[4] === "*" && c[3] !== "*") return "每年 " + c[3] + " 月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
+          if (c[2] !== "*" && c[4] === "*" && c[2] >= 29) return "每月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
+          if (c[2] !== "*" && c[4] === "*") return "每月 " + c[2] + " 日 " + pad(Number(ho)) + ":" + pad(Number(mi));
+          if (c[4] !== "*") {
+            const w = "日一二三四五六"[Number(c[4]) % 7];
+            return "每周" + w + " " + pad(Number(ho)) + ":" + pad(Number(mi));
+          }
+          return "每天 " + pad(Number(ho)) + ":" + pad(Number(mi));
+        }
+        return j.cron || "";
+      }
+      function buildFreq() {
+        const f = $("fFreq").value;
+        const tm = ($("fTime").value || "09:00").split(":");
+        const h = Number(tm[0]) || 0, m = Number(tm[1]) || 0;
+        if (f === "interval") {
+          const n = Math.max(1, Number($("fEvery").value) || 1);
+          const unit = $("fUnit").value;
+          if (unit === "hour") return { kind: "cron", cron: "0 */" + Math.min(23, n) + " * * *" };
+          return { kind: "cron", cron: "*/" + Math.min(59, n) + " * * * *" };
+        }
+        if (f === "weekly") return { kind: "cron", cron: m + " " + h + " * * " + $("fDow").value };
+        if (f === "monthly") return { kind: "cron", cron: m + " " + h + " " + (Number($("fDom").value) || 1) + " * *" };
+        if (f === "once") return { kind: "once", at: new Date($("fOnce").value || 0).getTime() };
+        if (f === "cron") return { kind: "cron", cron: $("fCron").value.trim() };
+        return { kind: "cron", cron: m + " " + h + " * * *" };
+      }
+      function describe() {
+        const f = $("fFreq").value;
+        const t = $("fTime").value || "09:00";
+        if (f === "interval") {
+          const n = Math.max(1, Number($("fEvery").value) || 1);
+          return "每 " + n + " " + ($("fUnit").value === "hour" ? "小时" : "分钟") + "执行";
+        }
+        if (f === "weekly") {
+          const w = "日一二三四五六"[Number($("fDow").value) % 7];
+          return "每周" + w + " " + t + " 执行";
+        }
+        if (f === "monthly") {
+          const dom = Number($("fDom").value) || 1;
+          return "每月 " + dom + " 日 " + t + " 执行" + (dom >= 29 ? "（没有这一天的月份跳过）" : "");
+        }
+        if (f === "once") {
+          const v = $("fOnce").value;
+          if (!v) return "选一个将来的时间";
+          return new Date(v).toLocaleString() + " 执行一次";
+        }
+        if (f === "cron") {
+          const c = $("fCron").value.trim();
+          return c ? "按 cron " + c + " 执行" : "填 5 段 cron（分 时 日 月 周）";
+        }
+        return "每天 " + t + " 执行";
+      }
+      function syncRows() {
+        const f = $("fFreq").value;
+        $("rowWeek").hidden = f !== "weekly";
+        $("rowMonth").hidden = f !== "monthly";
+        $("rowInterval").hidden = f !== "interval";
+        $("rowOnce").hidden = f !== "once";
+        $("rowCron").hidden = f !== "cron";
+        $("fTime").hidden = f === "interval" || f === "once" || f === "cron";
+        $("rowSess").hidden = $("fDeliver").value !== "session";
+        const h = $("fHint");
+        if (h) h.textContent = describe();
+      }
+      function renderList() {
+        const box = $("schList");
+        box.textContent = "";
+        const jobs = schData.jobs || [];
+        const cnt = $("schCount");
+        if (cnt) cnt.textContent = jobs.length ? String(jobs.length) : "";
+        if (!jobs.length) {
+          const d = document.createElement("div"); d.className = "msg"; d.textContent = "还没有定时任务";
+          box.append(d); return;
+        }
+        for (const j of jobs) {
+          const row = document.createElement("div");
+          row.className = "srow" + (j.enabled ? "" : " off");
+          const st = document.createElement("div"); st.className = "st";
+          const b = document.createElement("b"); b.textContent = j.label || j.task;
+          const i = document.createElement("i");
+          const dest = { none: "不发送", session: "发会话", new: "发新会话" }[j.deliver] || "";
+          i.textContent = human(j) + " · " + (j.nextRunAt ? "下次 " + new Date(j.nextRunAt).toLocaleString() : "已停用") + " · " + dest;
+          st.append(b, i);
+          const tg = document.createElement("button"); tg.textContent = j.enabled ? "停用" : "启用";
+          tg.onclick = () => post({ action: "toggle", id: j.id, enabled: !j.enabled });
+          const rm = document.createElement("button"); rm.textContent = "删";
+          rm.onclick = () => post({ action: "remove", id: j.id });
+          row.append(st, tg, rm);
+          box.append(row);
+        }
+      }
+      async function load() {
+        try {
+          const r = await fetch(SCH + "?_=" + Date.now(), { cache: "no-store" });
+          schData = await r.json();
+          renderList();
+          const sel = $("fSess");
+          sel.textContent = "";
+          for (const s of schData.sessions || []) {
+            const o = document.createElement("option");
+            o.value = s.path; o.textContent = String(s.title).slice(0, 24);
+            sel.append(o);
+          }
+          if (!(schData.sessions || []).length) {
+            const o = document.createElement("option"); o.value = ""; o.textContent = "（没有可选会话）"; sel.append(o);
+          }
+        } catch (e) { $("fMsg").textContent = "读取失败：" + e.message; }
+      }
+      async function post(body) {
+        try {
+          const r = await fetch(SCH, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+          const j = await r.json();
+          $("fMsg").textContent = j.ok ? "" : (j.error || "操作失败");
+          await load();
+          return j;
+        } catch (e) { $("fMsg").textContent = "请求失败：" + e.message; return { ok: false }; }
+      }
+      $("schOpen").onclick = () => {
+        const f = $("schForm");
+        f.hidden = !f.hidden;
+        if (!f.hidden) { load(); syncRows(); }
+      };
+      $("fCancel").onclick = () => { $("schForm").hidden = true; $("fMsg").textContent = ""; };
+      $("fFreq").onchange = syncRows;
+      $("fDeliver").onchange = syncRows;
+      for (const id of ["fTime", "fDow", "fDom", "fEvery", "fUnit", "fOnce", "fCron"]) {
+        const n = $(id);
+        if (n) { n.addEventListener("input", syncRows); n.addEventListener("change", syncRows); }
+      }
+      $("fSave").onclick = async () => {
+        const task = $("fTask").value.trim();
+        if (!task) { $("fMsg").textContent = "先写执行内容"; return; }
+        const freq = buildFreq();
+        if (freq.kind === "cron" && !freq.cron) { $("fMsg").textContent = "频率没填对"; return; }
+        if (freq.kind === "once" && !(freq.at > Date.now())) { $("fMsg").textContent = "指定一次的时间要在将来"; return; }
+        const deliver = $("fDeliver").value;
+        const body = { action: "add", kind: freq.kind, cron: freq.cron, at: freq.at, task, deliver };
+        const name = $("fName").value.trim();
+        if (name) body.label = name;
+        else body.label = task.slice(0, 14);
+        if (deliver === "session") {
+          const sp = $("fSess").value;
+          if (!sp) { $("fMsg").textContent = "没有可选会话"; return; }
+          body.sessionPath = sp;
+        }
+        const r = await post(body);
+        if (r && r.ok) {
+          $("fTask").value = ""; $("fName").value = ""; $("schForm").hidden = true;
+        }
+      };
+      load();
+      syncRows();
+    })();
+
+  await hana.ready?.();
+</script>
+</body>
+</html>

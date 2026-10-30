@@ -17,6 +17,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DshBridge, isPortFree } from "../lib/bridge.js";
+import { applyRealHome } from "../lib/home.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const INSTALL_DIR = join(HERE, "..");
@@ -43,6 +44,10 @@ if (!Number.isFinite(PORT) || PORT <= 0 || PORT > 65535) {
   console.error(`[hanako2dsh] 代理端口不合法：${PORT}`);
   process.exit(2);
 }
+
+// 宿主会把受管运行时的 HOME 指向 <appData>/.runtime-tmp。
+// DSH 按 ~/.dsh 找账号，不扳回来就永远是“未登录”。这一步必须在起桥之前做。
+applyRealHome(log);
 
 if (!(await isPortFree(PORT))) {
   console.error(`[hanako2dsh] 端口 ${PORT} 已被占用，无法起代理。请关掉占用它的程序后重启本 App。`);

@@ -45,7 +45,23 @@ App (index.js)                      受管运行时 (runtime/server.mjs)
 
 ## 用
 
-页面：页面切换条里会出现「DSH」这一页，进去就是活的 DSH 界面，跟浏览器里开一样，皮肤由代理注入。
+页面：页面切换条里会出现「DSH」这一页，进去就是活的 DSH 界面，跟浏览器里开一样，皮肤由代理注入。页面的小图标由 `pageIcon` 声明（`ui/assets/dsh-nav.svg`）。
+
+输入栏：消息输入框上方的状态条里有一个「DSH 唤醒」按钮，点一下确保实例在跑，并回一句当前状态。它走的是 `contributes.ui.inputStatus` + `wake` 工具。
+
+返回：DSH 页左下角有一个很淡的小箭头控件（鼠标靠近才亮），点一下会 focus 回“进入这一页之前正在看的那个对话”，宿主自己把前台导航切回聊天页。它靠 `hana.sessions.getActive()` 在页面加载时先记下目标，失败就隐藏按钮，不假装能返回。独立窗口没有会话导航，那里这个控件会自己隐掉。
+
+两扇门：
+
+- **页面**（页面切换条里的 DSH）：随时切过去看一眼、派个活。坑是它要和 Hana 自己的侧栏共处，DSH 自己还有一条侧栏，窗口窄时内容会被挤成一条缝。切到这一页时，**功能面板**（`functionPanel`）会在侧边给出 DSH 状态面板，跟卡片中心那张状态卡是同一份页面。
+- **独立窗口**（卡片中心的「DSH Inside」）：拖出来就是一个自己的窗口，默认 1180×820，里面没有 Hana 侧栏，DSH 拿全宽。位置和大小宿主会记住。
+- **状态卡**（卡片中心的「DSH 状态」）：与功能面板同一份页面，内容也一样——状态灯、工作区窗口、派活进度、**派活历史（时间线）**、**定时任务列表与新建表单**、急停。卡片小就滚动，面板宽就展开，不再做两套。
+
+三处界面共用一份数据源：代理的 `/__api/state`、`/__hb`、`/__sched`。状态卡和功能面板是同一个 `ui/panel.html`，只是挂在不同位置。
+
+两个侧栏的收起按钮分别属于两个房东：Hana 左上角那个、DSH 头部右侧那个。App 无法代按——公开 SDK 里没有 sidebar / collapse 接口，iframe 也碰不到宿主 DOM。
+
+> 注：左侧那个固定面板列表（预览 / 终端 / 工作区 / 后台任务 / 浏览器）不收纳 App 入口。清单里的 `siteNavEntry` 只在服务端投影里有，HanaAgent 1.3.6 的桌面端还没读这个字段（在 `app.asar` 里全文搜索零命中），所以应用能给的位置只有页面切换条与输入栏按钮两处。
 
 派活（对话里）：
 
@@ -71,6 +87,7 @@ App (index.js)                      受管运行时 (runtime/server.mjs)
 | `status` | 端口、就绪、cookie、最近错误、当前 cwd |
 | `diagnose` | 安装目录、cli.js、凭据文件、版本兼容探测 |
 | `control` | start / stop / restart / pinCwd / unpinCwd，顺带改安装目录与自动拉起 |
+| `wake` | 输入栏那个「DSH 唤醒」按钮调用的：确保运行时存在并把桥拉起来 |
 | `schedule` | 定时任务的增删查启停 |
 
 ## 目录
@@ -96,6 +113,7 @@ sdk/                   随包携带的 @hana/app-sdk 运行时闭包
 
 - 只支持 Windows（DSH 桌面版只有 Windows 形态）。
 - 代理端口固定 41888，被别的程序占了就起不来；`diagnose` 里能看到原因。
+- **受管运行时的家目录会被宿主重定向**到 `<appData>/.runtime-tmp`。DSH 按 `~/.dsh` 找账号，不扳回来页面会停在「登录 DeepSeek 账号」。`lib/home.js` 在起桥前把 `HOME` / `USERPROFILE` / `APPDATA` / `DSH_HOME` 改回真实档案（按 `.dsh` 与 `.credentials.yaml` 认），找不到就不动。升级宿主后若这个行为变了，`diagnose` 的 `home` 与 `credentialsExists` 会第一时间暴露。
 - 页面 iframe 依赖 DSH 那边允许被嵌；DSH 升级若改了 `frame-ancestors`，页面会白屏但派活仍然可用。
 - `local-machine` 档位没有文件系统隔离，这是它能在本机干活的前提，也是它需要你明确点一次同意的原因。
 
